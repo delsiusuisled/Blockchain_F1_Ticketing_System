@@ -1,0 +1,49 @@
+pragma solidity ^0.5.10;
+
+contract HouseRegistrationContract {
+    struct House {
+        uint houseNo;
+        Owner owner;
+    }
+    struct Owner{
+        string name;
+        address walletAddress;
+    }
+    mapping(uint => House) private houseList;
+    uint public houseCount;
+
+    mapping(address => uint) public balances;
+
+    function getOwner(uint _houseNo) public view returns (uint houseNo, string memory ownerName, address walletAddress){
+        return (houseList[_houseNo].houseNo, houseList[_houseNo].owner.name, houseList[_houseNo].owner.walletAddress);
+    }
+
+    function registerNewHouse (string memory _owner, address _address, uint _amount) public {
+        balances[_address] -= _amount;
+        houseCount ++;
+        HouseRegistrationContract.Owner memory newOwner = Owner(_owner, _address);
+        houseList[houseCount] = House(houseCount, newOwner);
+    }
+    constructor() public {
+        mintCoins(0xa67581333f96d6b97B3683B521D07615cd7b455B, 5000);
+        mintCoins(0xA26B346D0072f6D0498536537cDddC3C870aD5B6, 10000);
+        registerNewHouse("Owner 1", 0xa67581333f96d6b97B3683B521D07615cd7b455B, 1000);
+        registerNewHouse("Owner 2", 0xA26B346D0072f6D0498536537cDddC3C870aD5B6, 1000);
+    }
+    function transferHouse (uint _houseNo, string memory _owner, address _address, uint _amount) public {
+        address receiver = houseList[_houseNo].owner.walletAddress;
+        sendCoins(_address, receiver, _amount);
+        HouseRegistrationContract.Owner memory newOwner = Owner(_owner, _address);
+        houseList[_houseNo] = House(_houseNo, newOwner);
+    }
+
+    function mintCoins(address receiver, uint amount) public {
+        balances[receiver] += amount;
+    }
+
+    function sendCoins(address sender, address receiver, uint amount) public {
+        require(amount <= balances[sender], "insufficient balance.");
+        balances[sender] -= amount;
+        balances[receiver] += amount;
+    }
+} 
