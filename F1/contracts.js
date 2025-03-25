@@ -1,4 +1,4 @@
-//this file is to store the address, abi, and endpoint
+//this file is to store the address, abi, and endpoint, and centralized functions
 //const CONTRACT_ADDRESS = "0x4c0f1c23ca3c268a53eef987de76a2b69c034ae2";
 //const CONTRACT_ADDRESS = "0xe2c0e183e1b5fb997fe444894d52b5db4200f4fc";
 //const CONTRACT_ADDRESS = "0xea39d36f6511edfafb58859fe75d7374d71c5292";
@@ -31,126 +31,22 @@
 //const CONTRACT_ADDRESS = "0xc90a5e15a1972e94dc91646cccc872cbd4541739"; 
 //const CONTRACT_ADDRESS = "0xdbe2e2b38140424135451346e52322d93f576ff6"; 
 //const CONTRACT_ADDRESS = "0x09df51b8b84f2d6b6fcd01c684c209e1056b160d"; 
-const CONTRACT_ADDRESS = "0xc2d21ce96ca1f59190459f60184e485d6fa6f6f0"; 
-//contract url: https://sepolia.etherscan.io/tx/0x5057b2c184bdae07b0accc9c627fcc22e077fe9653b8c507c0e7ce6a78220e9c
+//const CONTRACT_ADDRESS = "0xc2d21ce96ca1f59190459f60184e485d6fa6f6f0"; 
+//const CONTRACT_ADDRESS = "0xe1bde4af60ab5bad74785dca3c190fcb855ead10";
+//const CONTRACT_ADDRESS = "0xbd7c399dc8117ebbb21240329a9059aff27e80be";
+//const CONTRACT_ADDRESS = "0xc046015c77b43961687b303114e5d93273d9471e";
+//const CONTRACT_ADDRESS = "0xa64ff1dbdb29430a23f02991053a5898cfa283d0";
+//const CONTRACT_ADDRESS = "0xf8f8340ab519f8e311029dcc460c72890702de42";
+//const CONTRACT_ADDRESS = "0xa45ae9825690f5def6842a34f59c85bc1160b631";
+//const CONTRACT_ADDRESS = "0x0d3e57f6d2cbfe6b4b795ced11e3f6f266bfafe7";
+//const CONTRACT_ADDRESS = "0x104c91f90a9b218213095dc8163300fc0655e463";
+//const CONTRACT_ADDRESS = "0x3014578f435873183006783f7693b35ce9df9608";
+//const CONTRACT_ADDRESS = "0xd547543c58658a56fd4d168eb9bd2a183a6021e8";
+const CONTRACT_ADDRESS = "0xbbd73082d50a156befd530985645842363ac678f";
+//contract url: https://sepolia.etherscan.io/tx/0xc9faf4b9cc826c413ba27eec9ea0ca4a70550a9253bc62bbd767ca2e5ba280e2
 const CONTRACT_ENDPOINT = "https://sepolia.infura.io/v3/";
 const F1TicketContract = {
         abi: [
-            {
-                "inputs": [
-                    {
-                        "internalType": "string",
-                        "name": "fullName",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "organizer",
-                        "type": "address"
-                    }
-                ],
-                "name": "addOrganizer",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_ticketId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "cancelResale",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "string",
-                        "name": "_name",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_date",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_location",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "_price",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "_availableTickets",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "createEvent",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_eventId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_eventName",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_eventDate",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_eventLocation",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "_price",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "createTicket",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "bytes32",
-                        "name": "role",
-                        "type": "bytes32"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "account",
-                        "type": "address"
-                    }
-                ],
-                "name": "grantRole",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
             {
                 "inputs": [],
                 "stateMutability": "nonpayable",
@@ -173,9 +69,9 @@ const F1TicketContract = {
                     },
                     {
                         "indexed": false,
-                        "internalType": "string",
-                        "name": "date",
-                        "type": "string"
+                        "internalType": "uint256",
+                        "name": "eventTimestamp",
+                        "type": "uint256"
                     },
                     {
                         "indexed": false,
@@ -192,25 +88,12 @@ const F1TicketContract = {
                     {
                         "indexed": false,
                         "internalType": "uint256",
-                        "name": "availableTickets",
+                        "name": "maxTickets",
                         "type": "uint256"
                     }
                 ],
                 "name": "EventUpdated",
                 "type": "event"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_ticketId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "expireTicket",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
             },
             {
                 "anonymous": false,
@@ -237,32 +120,6 @@ const F1TicketContract = {
                 ],
                 "name": "OrganizerRemoved",
                 "type": "event"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_ticketId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "purchaseResaleTicket",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_eventId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "purchaseTicket",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
             },
             {
                 "anonymous": false,
@@ -309,50 +166,6 @@ const F1TicketContract = {
                 "type": "event"
             },
             {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_ticketId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "refundTicket",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "organizer",
-                        "type": "address"
-                    }
-                ],
-                "name": "removeOrganizer",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "bytes32",
-                        "name": "role",
-                        "type": "bytes32"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "account",
-                        "type": "address"
-                    }
-                ],
-                "name": "renounceRole",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
                 "anonymous": false,
                 "inputs": [
                     {
@@ -364,42 +177,6 @@ const F1TicketContract = {
                 ],
                 "name": "ResaleCancelled",
                 "type": "event"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_ticketId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "_newPrice",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "resellTicket",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "bytes32",
-                        "name": "role",
-                        "type": "bytes32"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "account",
-                        "type": "address"
-                    }
-                ],
-                "name": "revokeRole",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
             },
             {
                 "anonymous": false,
@@ -552,68 +329,8 @@ const F1TicketContract = {
                 "type": "event"
             },
             {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_ticketId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "_newOwner",
-                        "type": "address"
-                    }
-                ],
-                "name": "transferTicket",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
-            },
-            {
                 "stateMutability": "payable",
                 "type": "fallback"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_eventId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_name",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_date",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "_location",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "_price",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "_availableTickets",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "updateEvent",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "stateMutability": "payable",
-                "type": "receive"
             },
             {
                 "inputs": [],
@@ -630,8 +347,124 @@ const F1TicketContract = {
             },
             {
                 "inputs": [],
+                "name": "ORGANIZER_ROLE",
+                "outputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "",
+                        "type": "bytes32"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "fullName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "organizer",
+                        "type": "address"
+                    }
+                ],
+                "name": "addOrganizer",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "cancelResale",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "_name",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_eventTimestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "_location",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_price",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_maxTickets",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "createEvent",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
                 "name": "eventCount",
                 "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "_name",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_eventTimestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "_location",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_price",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "eventExists",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    },
                     {
                         "internalType": "uint256",
                         "name": "",
@@ -662,9 +495,9 @@ const F1TicketContract = {
                         "type": "string"
                     },
                     {
-                        "internalType": "string",
-                        "name": "eventDate",
-                        "type": "string"
+                        "internalType": "uint256",
+                        "name": "eventTimestamp",
+                        "type": "uint256"
                     },
                     {
                         "internalType": "string",
@@ -678,13 +511,50 @@ const F1TicketContract = {
                     },
                     {
                         "internalType": "uint256",
-                        "name": "availableTickets",
+                        "name": "maxTickets",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "ticketsMinted",
                         "type": "uint256"
                     },
                     {
                         "internalType": "bool",
                         "name": "status",
                         "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "expireTicket",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "generateQrCodeData",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
                     }
                 ],
                 "stateMutability": "view",
@@ -707,9 +577,9 @@ const F1TicketContract = {
                                 "type": "string"
                             },
                             {
-                                "internalType": "string",
-                                "name": "eventDate",
-                                "type": "string"
+                                "internalType": "uint256",
+                                "name": "eventTimestamp",
+                                "type": "uint256"
                             },
                             {
                                 "internalType": "string",
@@ -723,7 +593,12 @@ const F1TicketContract = {
                             },
                             {
                                 "internalType": "uint256",
-                                "name": "availableTickets",
+                                "name": "maxTickets",
+                                "type": "uint256"
+                            },
+                            {
+                                "internalType": "uint256",
+                                "name": "ticketsMinted",
                                 "type": "uint256"
                             },
                             {
@@ -748,6 +623,25 @@ const F1TicketContract = {
             {
                 "inputs": [
                     {
+                        "internalType": "uint256",
+                        "name": "_eventId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "getEventStatus",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
                         "internalType": "address",
                         "name": "admin",
                         "type": "address"
@@ -759,6 +653,19 @@ const F1TicketContract = {
                         "internalType": "address",
                         "name": "",
                         "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getOrganizerCount",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
                     }
                 ],
                 "stateMutability": "view",
@@ -814,14 +721,19 @@ const F1TicketContract = {
                                 "type": "uint256"
                             },
                             {
+                                "internalType": "uint256",
+                                "name": "eventId",
+                                "type": "uint256"
+                            },
+                            {
                                 "internalType": "string",
                                 "name": "eventName",
                                 "type": "string"
                             },
                             {
-                                "internalType": "string",
-                                "name": "eventDate",
-                                "type": "string"
+                                "internalType": "uint256",
+                                "name": "eventTimestamp",
+                                "type": "uint256"
                             },
                             {
                                 "internalType": "string",
@@ -840,11 +752,6 @@ const F1TicketContract = {
                             },
                             {
                                 "internalType": "bool",
-                                "name": "isForSale",
-                                "type": "bool"
-                            },
-                            {
-                                "internalType": "bool",
                                 "name": "isForResale",
                                 "type": "bool"
                             },
@@ -855,8 +762,13 @@ const F1TicketContract = {
                             },
                             {
                                 "internalType": "address[]",
-                                "name": "resaleHistory",
+                                "name": "ownershipHistory",
                                 "type": "address[]"
+                            },
+                            {
+                                "internalType": "string",
+                                "name": "qrCodeHash",
+                                "type": "string"
                             }
                         ],
                         "internalType": "struct F1PaddockClub.Ticket[]",
@@ -947,14 +859,19 @@ const F1TicketContract = {
                                 "type": "uint256"
                             },
                             {
+                                "internalType": "uint256",
+                                "name": "eventId",
+                                "type": "uint256"
+                            },
+                            {
                                 "internalType": "string",
                                 "name": "eventName",
                                 "type": "string"
                             },
                             {
-                                "internalType": "string",
-                                "name": "eventDate",
-                                "type": "string"
+                                "internalType": "uint256",
+                                "name": "eventTimestamp",
+                                "type": "uint256"
                             },
                             {
                                 "internalType": "string",
@@ -973,11 +890,6 @@ const F1TicketContract = {
                             },
                             {
                                 "internalType": "bool",
-                                "name": "isForSale",
-                                "type": "bool"
-                            },
-                            {
-                                "internalType": "bool",
                                 "name": "isForResale",
                                 "type": "bool"
                             },
@@ -988,8 +900,13 @@ const F1TicketContract = {
                             },
                             {
                                 "internalType": "address[]",
-                                "name": "resaleHistory",
+                                "name": "ownershipHistory",
                                 "type": "address[]"
+                            },
+                            {
+                                "internalType": "string",
+                                "name": "qrCodeHash",
+                                "type": "string"
                             }
                         ],
                         "internalType": "struct F1PaddockClub.Ticket[]",
@@ -998,6 +915,24 @@ const F1TicketContract = {
                     }
                 ],
                 "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "grantRole",
+                "outputs": [],
+                "stateMutability": "nonpayable",
                 "type": "function"
             },
             {
@@ -1022,6 +957,24 @@ const F1TicketContract = {
                     }
                 ],
                 "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_eventId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_additionalTickets",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "incrementMaxTickets",
+                "outputs": [],
+                "stateMutability": "nonpayable",
                 "type": "function"
             },
             {
@@ -1051,19 +1004,6 @@ const F1TicketContract = {
                 "type": "function"
             },
             {
-                "inputs": [],
-                "name": "ORGANIZER_ROLE",
-                "outputs": [
-                    {
-                        "internalType": "bytes32",
-                        "name": "",
-                        "type": "bytes32"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
                 "inputs": [
                     {
                         "internalType": "uint256",
@@ -1086,6 +1026,50 @@ const F1TicketContract = {
                 "inputs": [
                     {
                         "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "expectedPrice",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "purchaseResaleTicket",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_eventId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "purchaseTicket",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "refundTicket",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
                         "name": "",
                         "type": "uint256"
                     }
@@ -1099,6 +1083,73 @@ const F1TicketContract = {
                     }
                 ],
                 "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "organizer",
+                        "type": "address"
+                    }
+                ],
+                "name": "removeOrganizer",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "renounceRole",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_newPrice",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "resellTicket",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "role",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "revokeRole",
+                "outputs": [],
+                "stateMutability": "nonpayable",
                 "type": "function"
             },
             {
@@ -1149,14 +1200,19 @@ const F1TicketContract = {
                         "type": "uint256"
                     },
                     {
+                        "internalType": "uint256",
+                        "name": "eventId",
+                        "type": "uint256"
+                    },
+                    {
                         "internalType": "string",
                         "name": "eventName",
                         "type": "string"
                     },
                     {
-                        "internalType": "string",
-                        "name": "eventDate",
-                        "type": "string"
+                        "internalType": "uint256",
+                        "name": "eventTimestamp",
+                        "type": "uint256"
                     },
                     {
                         "internalType": "string",
@@ -1175,11 +1231,6 @@ const F1TicketContract = {
                     },
                     {
                         "internalType": "bool",
-                        "name": "isForSale",
-                        "type": "bool"
-                    },
-                    {
-                        "internalType": "bool",
                         "name": "isForResale",
                         "type": "bool"
                     },
@@ -1187,6 +1238,11 @@ const F1TicketContract = {
                         "internalType": "bool",
                         "name": "isExpired",
                         "type": "bool"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "qrCodeHash",
+                        "type": "string"
                     }
                 ],
                 "stateMutability": "view",
@@ -1204,6 +1260,70 @@ const F1TicketContract = {
                 ],
                 "stateMutability": "view",
                 "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "_newOwner",
+                        "type": "address"
+                    }
+                ],
+                "name": "transferTicket",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_eventId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "_newMaxTickets",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "updateMaxTickets",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_ticketId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "_providedHash",
+                        "type": "string"
+                    }
+                ],
+                "name": "verifyTicket",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "stateMutability": "payable",
+                "type": "receive"
             }
         ]
     }

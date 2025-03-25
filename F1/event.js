@@ -1,47 +1,75 @@
 const ADMIN_ACCOUNT = "0x39022f2935339Ff128e2917AFF08867098Fffc4e"; // Admin account for privileged actions
 let isEventsLoaded = false;
 
-// Initialize Web3
+// event.js
+let isWeb3Initialized = false; // Add this line at the top
+
 async function initializeWeb3() {
     console.log("🔹 Initializing Web3...");
 
-    if (typeof window.ethereum === "undefined") {
-        alert("⚠️ MetaMask is not installed. Please install it.");
-        return;
+    // Check if MetaMask is installed
+    if (!window.ethereum) {
+        alert("⚠️ Please install MetaMask!");
+        return false; // Return false if MetaMask is not installed
     }
 
-    window.web3 = new Web3(window.ethereum); // Ensure Web3 is globally assigned
+    // Initialize Web3
+    window.web3 = new Web3(window.ethereum);
 
     try {
-        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-        window.currentAccount = accounts[0];
-        sessionStorage.setItem("connectedWallet", window.currentAccount);
-        console.log("✅ Wallet connected:", window.currentAccount);
+        // Check if already connected
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
 
-        // ✅ Ensure Web3 is properly initialized before continuing
-        if (!window.web3 || !window.web3.utils) {
-            console.error("❌ Web3 is not properly initialized.");
-            alert("⚠️ Web3 initialization failed. Refresh the page and try again.");
-            return;
+        if (accounts.length > 0) {
+            // Wallet is already connected
+            window.currentAccount = accounts[0];
+            console.log("✅ Wallet already connected:", window.currentAccount);
+            sessionStorage.setItem("connectedWallet", window.currentAccount);
+            isWeb3Initialized = true;
+            await updateWalletDisplay();
+            return true;
+        } else {
+            // Request account access if not connected
+            const requestedAccounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            if (requestedAccounts.length > 0) {
+                window.currentAccount = requestedAccounts[0];
+                console.log("✅ Wallet connected after request:", window.currentAccount);
+                sessionStorage.setItem("connectedWallet", window.currentAccount);
+                isWeb3Initialized = true;
+                await updateWalletDisplay();
+                return true;
+            } else {
+                console.warn("⚠️ No accounts returned by MetaMask.");
+                alert("Please connect your wallet.");
+                return false;
+            }
         }
-
-        await initializeContract();
-        await updateWalletDisplay();
     } catch (error) {
-        console.error("❌ Failed to connect wallet:", error);
+        console.error("❌ Wallet connection failed:", error);
+
+        // Handle specific MetaMask errors
+        if (error.code === 4001) {
+            alert("⚠️ Wallet connection rejected by user.");
+        } else {
+            alert("Wallet connection required");
+            window.location.href="index.html"
+        }
+        return false;
     }
 }
 
-
-
-
 // ✅ Initialize Smart Contract
 async function initializeContract() {
-    if (!window.web3) await initializeWeb3();
+    if (!isWeb3Initialized) {
+        await initializeWeb3();
+    }
 
-    if (!window.contract) {
-        window.contract = new window.web3.eth.Contract(F1TicketContract.abi, CONTRACT_ADDRESS);
-        console.log("🔹 Contract initialized.");
+    if (!window.contract && window.web3) {
+        window.contract = new window.web3.eth.Contract(
+            F1TicketContract.abi,
+            CONTRACT_ADDRESS
+        );
+        console.log("Contract initialized");
     }
 }
 
@@ -68,12 +96,13 @@ async function fetchAllEvents() {
         return events.map(event => ({
             eventId: event[0],
             eventName: event[1],
-            eventDate: event[2],
+            eventTimestamp: event[2],
             eventLocation: event[3],
             price: event[4],
-            availableTickets: event[5],
-            ticketIds: event[6],
-            status: event[7]
+            maxTickets: event[5],
+            ticketsMinted: event[6],
+            ticketIds: event[7],
+            status: event[8]
         }));
     } catch (error) {
         console.error("❌ Failed to fetch events from contract:", error);
@@ -85,26 +114,30 @@ async function fetchAllEvents() {
 
 // ✅ Admin Check Using Constant
 function isAdmin() {
-    return window.currentAccount && window.currentAccount.toLowerCase() === ADMIN_ACCOUNT.toLowerCase();
+    return window.web3 && 
+           window.currentAccount && 
+           window.currentAccount.toLowerCase() === ADMIN_ACCOUNT.toLowerCase();
 }
 
-// ✅ Enforce Admin Privileges Before Performing Actions
 async function enforceAdminPrivileges() {
+    if (!window.web3) await initializeWeb3();
     if (!isAdmin()) {
         alert("⚠️ Only the admin can perform this action.");
         throw new Error("Unauthorized action: Admin privileges required.");
     }
 }
-
 // Update Wallet Address in Navbar
 async function updateWalletDisplay() {
     try {
-        const accounts = await web3.eth.getAccounts();
-        if (accounts.length > 0) {
-            const walletDisplayElement = document.getElementById("walletAddressDisplay");
-            walletDisplayElement.textContent = `Connected Wallet: ${accounts[0]}`;
-        } else {
-            console.warn("No wallet connected.");
+        // Always use window.web3 instead of global web3 reference
+        const accounts = await window.web3.eth.getAccounts();
+        window.currentAccount = accounts.length > 0 ? accounts[0] : null;
+
+        const walletDisplay = document.getElementById("walletAddressDisplay");
+        if (walletDisplay) {
+            walletDisplay.textContent = window.currentAccount 
+                ? `Connected Wallet: ${window.currentAccount}`
+                : "";
         }
     } catch (error) {
         console.error("Error updating wallet display:", error);
@@ -125,7 +158,7 @@ async function loadEvents() {
         return;
     }
 
-    eventTableBody.innerHTML = `<tr><td colspan="8" class="text-center">Loading events, please wait...</td></tr>`;
+    eventTableBody.innerHTML = `<tr><td colspan="10" class="text-center">Loading events, please wait...</td></tr>`;
 
     try {
         if (!window.web3) await initializeWeb3();
@@ -133,7 +166,7 @@ async function loadEvents() {
 
         if (!window.contract) {
             console.error("❌ Contract not initialized. Cannot load events.");
-            eventTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading events.</td></tr>`;
+            eventTableBody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error loading events.</td></tr>`;
             return;
         }
 
@@ -142,35 +175,68 @@ async function loadEvents() {
 
         if (!Array.isArray(events) || events.length === 0) {
             console.warn("⚠️ No valid events found.");
-            eventTableBody.innerHTML = `<tr><td colspan="8" class="text-center">No events available.</td></tr>`;
+            eventTableBody.innerHTML = `<tr><td colspan="10" class="text-center">No events available.</td></tr>`;
             return;
         }
 
         eventTableBody.innerHTML = ""; // Clear table
+        const currentTimestamp = Math.floor(Date.now() / 1000);
 
         events.forEach((event, index) => {
             try {
                 console.log(`🔍 Processing Event ${index}:`, event);
 
-                let eventPrice = event.price; 
-                if (typeof eventPrice !== "undefined" && window.web3 && window.web3.utils) {
-                    eventPrice = `${window.web3.utils.fromWei(eventPrice, "ether")} ETH`;
+                // Convert values to numbers
+                const eventTimestamp = Number(event.eventTimestamp);
+                const maxTickets = Number(event.maxTickets);
+                const ticketsMinted = Number(event.ticketsMinted);
+                const availableTickets = maxTickets - ticketsMinted;
+                const isExpired = Number(event.eventTimestamp) < currentTimestamp;
+
+                // Determine availability
+                let availability;
+                if (eventTimestamp < currentTimestamp) {
+                    availability = "Expired";
                 } else {
-                    console.warn(`⚠️ Event ${index} has an invalid price value:`, eventPrice);
-                    eventPrice = "N/A";
+                    availability = availableTickets > 0 ? "Available" : "Sold Out";
                 }
 
-                const availability = event.availableTickets > 0 ? "Available" : "Sold Out";
+                // Format date
+                let formattedDate;
+                if (eventTimestamp && !isNaN(eventTimestamp)) {
+                    formattedDate = new Date(eventTimestamp * 1000).toLocaleDateString();
+                } else {
+                    console.warn(`⚠️ Event ${index} has invalid timestamp:`, eventTimestamp);
+                    formattedDate = "N/A";
+                }
+
+                // Format price
+                let eventPrice = "N/A";
+                if (typeof event.price !== "undefined" && window.web3 && window.web3.utils) {
+                    eventPrice = `${window.web3.utils.fromWei(event.price, "ether")} ETH`;
+                }
+
+                // Add "Update" button for admin only
+                const updateButton = isAdmin() ? `
+                <button class="btn btn-warning btn-sm update-btn" 
+                    ${isExpired ? 'disabled title="Event expired"' : ''}
+                    onclick="redirectToUpdatePage('${event.eventId}')">
+                    ${isExpired ? 'Expired' : 'Update'}
+                </button>
+            ` : "";
 
                 const row = `
                 <tr>
                     <td>${event.eventId}</td>
                     <td>${event.eventName}</td>
-                    <td>${event.eventDate}</td>
+                    <td>${formattedDate}</td>
                     <td>${event.eventLocation}</td>
                     <td>${eventPrice}</td>
+                    <td>${availableTickets}</td>
+                    <td>${ticketsMinted}</td>
+                    <td>${maxTickets}</td>
                     <td>${availability}</td>
-                    <td>${event.availableTickets}</td>
+                    <td>${updateButton}</td>
                 </tr>
                 `;
                 eventTableBody.innerHTML += row;
@@ -182,19 +248,19 @@ async function loadEvents() {
         console.log("✅ Events displayed successfully.");
     } catch (error) {
         console.error("❌ Error loading events:", error);
-        eventTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading events. Please try again.</td></tr>`;
+        eventTableBody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error loading events. Please try again.</td></tr>`;
     }
 }
 
-window.onload = async () => {
-    console.log("🔹 Window fully loaded, initializing Web3...");
-    await initializeWeb3();
+// window.onload = async () => {
+//     console.log("🔹 Window fully loaded, initializing Web3...");
+//     await initializeWeb3();
 
-    setTimeout(async () => {
-        await initializeContract();
-        await loadEvents();
-    }, 500); // Delay to ensure elements are ready
-};
+//     setTimeout(async () => {
+//         await initializeContract();
+//         await loadEvents();
+//     }, 500); // Delay to ensure elements are ready
+// };
 
 
 
@@ -229,13 +295,13 @@ async function createEvent() {
 
         // ✅ Retrieve values from form
         const eventName = document.getElementById("eventName").value.trim();
-        const eventDate = document.getElementById("eventDate").value.trim();
+        const eventDate = document.getElementById("eventDate").value.trim(); // Assuming this is a date input
         const eventLocation = document.getElementById("eventLocation").value.trim();
         const price = document.getElementById("price").value.trim();
-        const availableTickets = document.getElementById("availableTickets").value.trim();
+        const maxTickets = document.getElementById("availableTickets").value.trim();
 
         // ✅ Validate inputs
-        if (!eventName || !eventDate || !eventLocation || !price || !availableTickets) {
+        if (!eventName || !eventDate || !eventLocation || !price || !maxTickets) {
             alert("⚠️ All fields must be filled.");
             return;
         }
@@ -245,10 +311,13 @@ async function createEvent() {
             return;
         }
 
-        if (isNaN(availableTickets) || availableTickets <= 0) {
-            alert("⚠️ Available tickets must be a valid number.");
+        if (isNaN(maxTickets) || maxTickets <= 0) {
+            alert("⚠️ Max tickets must be a valid number.");
             return;
         }
+
+        // ✅ Convert date to Unix timestamp
+        const eventTimestamp = Math.floor(new Date(eventDate).getTime() / 1000);
 
         // ✅ Convert price to Wei safely
         let priceInWei;
@@ -259,22 +328,50 @@ async function createEvent() {
             alert("⚠️ Invalid price format.");
             return;
         }
+        
+        // ✅ Check if event exists by accessing result properties
+        const result = await window.contract.methods.eventExists(
+            eventName,
+            eventTimestamp,
+            eventLocation,
+            priceInWei
+        ).call();
+
+        const exists = result[0]; // Access first return value
+        const eventId = result[1]; // Access second return value
+        
+
+        if (exists) {
+            const proceed = confirm("You have created an event with the exact same values in it. We will instead increment the amount of available tickets for that event for you. Proceed?");
+            if (proceed) {
+                await window.contract.methods.incrementMaxTickets(
+                    eventId,
+                    maxTickets
+                ).send({ from: window.currentAccount });
+
+                alert("✅ Available tickets incremented successfully!");
+                window.location.href = "eventview.html"; // Redirect to event list
+                return;
+            } else {
+                return;
+            }
+        }
 
         // ✅ Send transaction to the smart contract
         console.log("🔹 Sending transaction to create event:", {
             eventName,
-            eventDate,
+            eventTimestamp,
             eventLocation,
             priceInWei,
-            availableTickets,
+            maxTickets,
         });
 
         const tx = await window.contract.methods.createEvent(
             eventName,
-            eventDate,
+            eventTimestamp,
             eventLocation,
             priceInWei,
-            availableTickets
+            maxTickets
         ).send({ from: window.currentAccount });
 
         console.log("✅ Event created successfully:", tx);
@@ -283,121 +380,107 @@ async function createEvent() {
         window.location.href = "eventview.html"; // Redirect to event list
     } catch (error) {
         console.error("❌ Error creating event:", error);
-        alert(`⚠️ Failed to create event: ${error.message}`);
+
+        // Extract the exact error message from the EVM revert
+        let errorMessage = "Transaction has been rejected by the EVM: ";
+        if (error.message && error.message.includes("revert")) {
+            // Extract the revert reason from the error message
+            const revertReason = error.message.split("revert ")[1] || "Unknown error";
+            errorMessage += revertReason;
+        } else if (error.data && error.data.message) {
+            // Extract the revert reason from the error data
+            const revertReason = error.data.message.split("revert ")[1] || "Unknown error";
+            errorMessage += revertReason;
+        } else if (error.receipt && error.receipt.logs && error.receipt.logs.length > 0) {
+            // Fallback: Try to extract the revert reason from the transaction receipt logs
+            const logs = error.receipt.logs;
+            for (const log of logs) {
+                if (log.data && log.data.includes("revert")) {
+                    const revertReason = log.data.split("revert ")[1] || "Unknown error";
+                    errorMessage += revertReason;
+                    break;
+                }
+            }
+        } else {
+            errorMessage += "Unknown error";
+        }
+
+        // Display the exact error message in the popup
+        alert(errorMessage);
     }
 }
 
-
-document.addEventListener("DOMContentLoaded", async () => {
-    console.log("🔹 DOM Content Loaded: Initializing Web3...");
-
-    await initializeWeb3(); // ✅ Ensure Web3 is initialized before any button click
-    await initializeContract();
-
-    const createEventButton = document.getElementById("createEventButton");
-
-    if (createEventButton) {
-        createEventButton.addEventListener("click", async () => {
-            await createEvent();
-        });
-    } else {
-        console.warn("⚠️ 'createEventButton' not found in the DOM.");
-    }
-});
-
-
-// ✅ Update Event
-async function updateEvent() {
+// ✅ Update Event Max Tickets
+async function updateEventMaxTickets(eventId, newMaxTickets) {
     try {
+        await initializeWeb3(); // Ensure Web3 is initialized
+        await initializeContract(); // Ensure contract is initialized
+
         enforceAdminPrivileges();
 
-        // ✅ Retrieve values from the form
-        const eventId = document.getElementById("eventId").value.trim();
-        const eventName = document.getElementById("eventName").value.trim();
-        const eventDate = document.getElementById("eventDate").value.trim();
-        const eventLocation = document.getElementById("eventLocation").value.trim();
-        const price = document.getElementById("price").value.trim();
-        const availableTickets = document.getElementById("availableTickets").value.trim();
-
-        // ✅ Basic validation
-        if (!eventId || isNaN(eventId)) {
-            alert("⚠️ Please provide a valid event ID.");
-            return;
-        }
-        if (!eventName || eventName.length === 0) {
-            alert("⚠️ Event name cannot be empty.");
-            return;
-        }
-        if (!eventDate || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
-            alert("⚠️ Event date must be in YYYY-MM-DD format.");
-            return;
-        }
-        if (!eventLocation || eventLocation.length === 0) {
-            alert("⚠️ Event location cannot be empty.");
-            return;
-        }
-        if (!price || isNaN(price) || Number(price) <= 0) {
-            alert("⚠️ Price must be a valid number greater than zero.");
-            return;
-        }
-        if (!availableTickets || isNaN(availableTickets) || availableTickets <= 0 || availableTickets > 100000) {
-            alert("⚠️ Available tickets must be a valid number between 1 and 100,000.");
+        // ✅ Ensure Web3 is initialized before using it
+        if (!window.web3 || !window.web3.utils) {
+            console.error("❌ Web3 is not properly initialized.");
+            alert("⚠️ Web3 is not initialized. Please ensure MetaMask is connected.");
             return;
         }
 
-        // ✅ Convert price to Wei (required for Ethereum transactions)
-        const priceInWei = web3.utils.toWei(price.toString(), "ether");
+        // ✅ Get current event details
+        const event = await window.contract.methods.events(eventId).call();
+        const ticketsMinted = event.ticketsMinted;
+
+        // ✅ Client-side validation
+        if (Number(newMaxTickets) < Number(ticketsMinted)) {
+            alert(`⚠️ Cannot reduce below ${ticketsMinted} tickets (already minted).`);
+            return;
+        }
 
         // ✅ Send transaction to the smart contract
-        console.log("🔹 Sending transaction to update event:", eventId, eventName, eventDate, eventLocation, priceInWei, availableTickets);
-        
-        await contract.methods.updateEvent(
-            eventId, 
-            eventName, 
-            eventDate, 
-            eventLocation, 
-            priceInWei, 
-            availableTickets
-        ).send({ from: currentAccount });
+        console.log("🔹 Sending transaction to update event max tickets:", {
+            eventId,
+            newMaxTickets,
+        });
 
-        alert("✅ Event updated successfully!");
-        window.location.href = "eventview.html"; // Redirect back to event list
+        const tx = await window.contract.methods.updateMaxTickets(
+            eventId,
+            newMaxTickets
+        ).send({ from: window.currentAccount });
+
+        console.log("✅ Event max tickets updated successfully:", tx);
+
+        alert("✅ Event max tickets updated successfully!");
+        window.location.href = "eventview.html"; // Redirect to event list
     } catch (error) {
-        console.error("❌ Failed to update event:", error);
-        alert(`⚠️ Error updating event: ${error.message}`);
+        console.error("❌ Error updating event max tickets:", error);
+
+        // Extract the exact error message from the EVM revert
+        let errorMessage = "Transaction has been rejected by the EVM: ";
+        if (error.message && error.message.includes("revert")) {
+            // Extract the revert reason from the error message
+            const revertReason = error.message.split("revert ")[1] || "Unknown error";
+            errorMessage += revertReason;
+        } else if (error.data && error.data.message) {
+            // Extract the revert reason from the error data
+            const revertReason = error.data.message.split("revert ")[1] || "Unknown error";
+            errorMessage += revertReason;
+        } else if (error.receipt && error.receipt.logs && error.receipt.logs.length > 0) {
+            // Fallback: Try to extract the revert reason from the transaction receipt logs
+            const logs = error.receipt.logs;
+            for (const log of logs) {
+                if (log.data && log.data.includes("revert")) {
+                    const revertReason = log.data.split("revert ")[1] || "Unknown error";
+                    errorMessage += revertReason;
+                    break;
+                }
+            }
+        } else {
+            errorMessage += "Unknown error";
+        }
+
+        // Display the exact error message in the popup
+        alert(errorMessage);
     }
 }
-
-// ✅ Attach updateEvent() to the button
-document.addEventListener("DOMContentLoaded", () => {
-    const updateEventButton = document.getElementById("updateEventButton");
-    if (updateEventButton) {
-        updateEventButton.addEventListener("click", updateEvent);
-    } else {
-        console.warn("⚠️ 'updateEventButton' not found in the DOM.");
-    }
-});
-
-
-// Delete Event
-async function deleteEvent(eventId) {
-    alert("❌ Event deletion is not allowed.");
-    console.warn(`⚠️ Event ID ${eventId} cannot be deleted.`);
-}
-
-
-// Attach event listeners to the delete buttons
-document.addEventListener("DOMContentLoaded", async () => {
-    await initializeWeb3();
-    await initializeContract();
-
-    // Load events without attaching delete listeners
-    await loadEvents();
-});
-
-
-
-
 
 // Load Tickets
 async function loadTickets() {
@@ -452,9 +535,56 @@ async function purchaseTicket(ticketId) {
     }
 }
 
+// ✅ Attach updateEvent() to the button
+document.addEventListener("DOMContentLoaded", () => {
+    const updateEventButton = document.getElementById("updateEventButton");
+    if (updateEventButton) {
+        updateEventButton.addEventListener("click", updateEvent);
+    } else {
+        console.warn("⚠️ 'updateEventButton' not found in the DOM.");
+    }
+});
+
 
 document.addEventListener("DOMContentLoaded", async () => {
+    console.log("🔹 DOM Content Loaded: Initializing Web3...");
+
+    const storedWallet = sessionStorage.getItem("connectedWallet");
+    if (storedWallet) {
+        window.currentAccount = storedWallet;
+        console.log("Using stored wallet:", storedWallet);
+    }
+
+    // Initialize core components
     await initializeWeb3();
+    await initializeContract();
+    await updateWalletDisplay();
+
+    const createEventButton = document.getElementById("createEventButton");
+
+    if (createEventButton) {
+        createEventButton.addEventListener("click", async () => {
+            await createEvent();
+        });
+    } else {
+        console.warn("⚠️ 'createEventButton' not found in the DOM.");
+    }
+});
+
+// Attach event listeners to the delete buttons
+document.addEventListener("DOMContentLoaded", async () => {
+    await initializeWeb3();
+    await initializeContract();
+    
+
+    // Load events without attaching delete listeners
+    await loadEvents();
+});
+
+document.addEventListener("DOMContentLoaded", async () => {
+    console.log("🔹 DOM Content Loaded: Initializing Web3...");
+
+    await initializeWeb3(); // ✅ Ensure Web3 is initialized before any button click
     await initializeContract();
 
     const params = new URLSearchParams(window.location.search);
@@ -463,27 +593,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("📋 Event ID from URL:", eventId); // Debugging
 
     try {
-        // Load tickets from localStorage
-        const storedTickets = JSON.parse(localStorage.getItem("presetTickets")) || [];
-
-        // Find the specific event by ID
-        const eventDetails = storedTickets.find(event => event.id == eventId);
-
-
-        console.log("📋 Event Details Found:", eventDetails); // Debugging
+        // Fetch event details from the contract
+        const event = await window.contract.methods.events(eventId).call();
 
         // Populate the form with event details
-        document.getElementById("eventId").value = eventDetails.id; // Use `id`
-        document.getElementById("eventName").value = eventDetails.name; // Use `name`
-        document.getElementById("eventDate").value = eventDetails.date; // Use `date`
-        document.getElementById("eventLocation").value = eventDetails.location; // Use `location`
-        document.getElementById("price").value = web3.utils.fromWei(eventDetails.price, "ether"); // Convert Wei to ETH
-        document.getElementById("availableTickets").value = eventDetails.quantity; // Display as integer
-        
+        document.getElementById("eventName").value = event.eventName;
+        document.getElementById("eventDate").value = new Date(event.eventTimestamp * 1000).toLocaleDateString();
+        document.getElementById("eventLocation").value = event.eventLocation;
+        document.getElementById("price").value = window.web3.utils.fromWei(event.price, "ether");
+        document.getElementById("availableTickets").value = event.maxTickets;
+        document.getElementById("mintedTickets").value = event.ticketsMinted;
+        document.getElementById("currentMaxTickets").value = event.maxTickets; // Set current max
+        document.getElementById("availableTickets").value = ""; // Clear new max field
+
         console.log("✅ Form populated with event data.");
     } catch (error) {
+        console.error("❌ Error fetching event details:", error);
+    }
+
+    const updateEventForm = document.getElementById("updateEventForm");
+
+    if (updateEventForm) {
+        updateEventForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+    
+            const newMaxTickets = document.getElementById("availableTickets").value.trim();
+            const ticketsMinted = document.getElementById("mintedTickets").value;
+    
+            if (!newMaxTickets || isNaN(newMaxTickets) || Number(newMaxTickets) <= 0) {
+                alert("⚠️ Available tickets must be a valid positive number.");
+                return;
+            }
+    
+            if (Number(newMaxTickets) < Number(ticketsMinted)) {
+                alert(`⚠️ Cannot set max tickets below ${ticketsMinted} (already minted).`);
+                return;
+            }
+    
+            await updateEventMaxTickets(eventId, newMaxTickets);
+        });
+    } else {
+        console.warn("⚠️ 'updateEventForm' not found in the DOM.");
     }
 });
-
-
-

@@ -75,6 +75,81 @@ async function initStaffPage() {
     }
 }
 
+// Scoped initialization functions
+async function f1AdminInitialize() {
+    try {
+        showLoading();
+        await initializeWeb3();
+        await initializeContract();
+        await verifyAccess();
+        await loadDashboardStats();
+        hideLoading();
+    } catch (error) {
+        console.error("Admin initialization error:", error);
+        showErrorModal("Failed to initialize admin panel");
+        hideLoading();
+    }
+}
+
+// Dashboard statistics
+async function loadDashboardStats() {
+    try {
+        const events = await contract.methods.getAllEvents().call();
+        const tickets = await contract.methods.ticketCount().call();
+        const organizerCount = await contract.methods.getOrganizerCount().call();
+
+        document.getElementById('eventsCount').textContent = events.length;
+        document.getElementById('ticketsCount').textContent = tickets;
+        document.getElementById('organizersCount').textContent = organizerCount;        
+    } catch (error) {
+        console.error("Error loading stats:", error);
+        showErrorModal("Failed to load dashboard statistics");
+    }
+}
+
+// Enhanced access verification
+async function verifyAccess() {
+    try {
+        const accounts = await web3.eth.getAccounts();
+        if (!accounts.length) throw new Error("No connected wallet");
+        
+        const connectedWallet = accounts[0].toLowerCase();
+        const isAdmin = connectedWallet === ADMIN_ADDRESS.toLowerCase();
+        const isOrganizer = await contract.methods.getOrganizerByAdmin(connectedWallet).call()
+            .then(() => true)
+            .catch(() => false);
+
+        if (!isAdmin && !isOrganizer) {
+            throw new Error("Unauthorized access");
+        }
+
+        updateWalletDisplay(connectedWallet);
+    } catch (error) {
+        console.error("Access verification failed:", error);
+        window.location.href = "index.html";
+    }
+}
+
+// UI Feedback functions
+function showLoading() {
+    document.querySelector('.f1-admin-loading').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.querySelector('.f1-admin-loading').style.display = 'none';
+}
+
+function showErrorModal(message) {
+    // Implement a proper modal system or use Bootstrap modal
+    alert(`Admin Error: ${message}`);
+}
+
+// Event listeners
+document.addEventListener("DOMContentLoaded", f1AdminInitialize);
+document.getElementById("disconnectWallet")?.addEventListener("click", () => {
+    sessionStorage.removeItem("connectedWallet");
+    window.location.reload();
+});
 
 window.addEventListener("DOMContentLoaded", initStaffPage);
 

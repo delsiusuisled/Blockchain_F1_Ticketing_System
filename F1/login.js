@@ -104,11 +104,15 @@ async function isOrganizerOrAdmin(walletAddress) {
 // ✅ Connect Wallet with Loading State
 async function connectWallet() {
     if (isConnecting) return;
-    isConnecting = true; // Prevent multiple clicks
+    isConnecting = true;
 
     const navConnectButton = document.getElementById("navConnectWalletButton");
     if (navConnectButton) {
-        navConnectButton.textContent = "Connecting...";
+        // Add spinner and disable button
+        navConnectButton.innerHTML = `
+            Connecting...
+            <div class="animate-spin spinner-border h-5 w-5 border-b-2 rounded-full mr-2"></div>
+        `;
         navConnectButton.disabled = true;
     }
 
@@ -124,102 +128,96 @@ async function connectWallet() {
         console.log("✅ Wallet Connected:", walletAddress);
         sessionStorage.setItem("connectedWallet", walletAddress);
 
-        // Ensure Web3 and Contract are initialized before proceeding
         await initializeWeb3();
         await initializeContract();
-
-        // Update Navbar UI
         await safeUpdateNavbar(walletAddress);
+
     } catch (error) {
         console.error("❌ Error connecting wallet:", error);
         alert("Failed to connect wallet. Please try again.");
     } finally {
         isConnecting = false;
         if (navConnectButton) {
-            navConnectButton.textContent = "Disconnect Wallet";
             navConnectButton.disabled = false;
-            navConnectButton.classList.remove("btn-danger");
-            navConnectButton.classList.add("btn-secondary");
-            navConnectButton.onclick = disconnectWallet;
         }
     }
 }
 
 
 // ✅ Disconnect Wallet with Proper UI Reset
-function disconnectWallet() {
+async function disconnectWallet() {
     console.log("🔹 Disconnecting Wallet...");
-
-    const navConnectButton = document.getElementById("navConnectWalletButton");
-    const walletDisplay = document.getElementById("walletAddressDisplay");
-    const staffNavItem = document.getElementById("staffNavItem");
-
-    if (navConnectButton) {
-        navConnectButton.textContent = "Disconnecting..."; // Temporary state
-        navConnectButton.disabled = true; // Prevent interaction during the process
-    }
-
-    // Clear session storage
+    
+    // Full cleanup
     sessionStorage.removeItem("connectedWallet");
     window.currentAccount = null;
+    window.web3 = null;
+    window.contract = null;
+    isWeb3Initialized = false;
+    isContractInitialized = false;
 
-    // ✅ Instantly Hide Staff Button & Wallet Display
-    if (walletDisplay) {
-        walletDisplay.style.display = "none";
-        walletDisplay.textContent = ""; // Clear connected wallet text
+    // Force UI update
+    await safeUpdateNavbar(null);
+    
+    // Page-specific cleanup
+    if (window.location.pathname.includes("mytickets.html")) {
+        document.getElementById("myTicketsTableBody").innerHTML = "";
     }
-    if (staffNavItem) {
-        staffNavItem.style.display = "none"; // Hide Staff nav item
-    }
+    
+    console.log("✅ Wallet fully disconnected");
 
-    // Add a small delay for UI smoothness
-    setTimeout(() => {
-        console.log("✅ Wallet Disconnected.");
+    // // Add a small delay for UI smoothness
+    // setTimeout(() => {
+    //     console.log("✅ Wallet Disconnected.");
 
-        // Reset Navbar to "Connect Wallet" state
-        if (navConnectButton) {
-            navConnectButton.textContent = "Connect Wallet";
-            navConnectButton.disabled = false; // Enable the button
-            navConnectButton.classList.add("btn-danger");
-            navConnectButton.classList.remove("btn-secondary");
-            navConnectButton.onclick = connectWallet; // Reset to connect logic
-        }
-    }, 500);
+    //     // Reset Navbar to "Connect Wallet" state
+    //     if (navConnectButton) {
+    //         navConnectButton.textContent = "Connect Wallet";
+    //         navConnectButton.disabled = false; // Enable the button
+    //         navConnectButton.classList.add("btn-danger");
+    //         navConnectButton.classList.remove("btn-secondary");
+    //         navConnectButton.onclick = connectWallet; // Reset to connect logic
+    //     }
+    // }, 500);
 }
 
 // ✅ Safe Update Navbar Function
 async function safeUpdateNavbar(walletAddress) {
-    const walletDisplay = document.getElementById("walletAddressDisplay");
+    const walletDisplay = document.getElementById("walletDisplay");
     const navConnectButton = document.getElementById("navConnectWalletButton");
     const staffNavItem = document.getElementById("staffNavItem");
 
-    if (!walletDisplay || !navConnectButton || !staffNavItem) {
-        console.error("❌ Navbar elements not found.");
-        return;
-    }
+    if (!walletDisplay || !navConnectButton) return;
 
-    if (!walletAddress) {
-        console.log("🔹 Wallet disconnected. Resetting navbar...");
-        walletDisplay.style.display = "none"; // Hide wallet address
-        walletDisplay.textContent = ""; // Clear wallet address
-        navConnectButton.textContent = "Connect Wallet"; // Reset button text
+    // Visual state management
+    if (walletAddress) {
+        // Connected state
+        walletDisplay.innerHTML = `
+            <div class="wallet-status">
+                <span class="connected-indicator"></span>
+                ${walletAddress}
+            </div>
+        `;
+        walletDisplay.style.display = "flex";
+        navConnectButton.classList.remove("btn-danger");
+        navConnectButton.classList.add("btn-secondary");
+        
+        // Staff check
+        if (staffNavItem) {
+            const isAdminOrOrganizer = await isOrganizerOrAdmin(walletAddress);
+            staffNavItem.style.display = isAdminOrOrganizer ? "inline-block" : "none";
+        }
+    } else {
+        // Disconnected state
+        walletDisplay.textContent = "Not Connected";
+        walletDisplay.style.display = "inline-block"; // Changed from none to inline-block
         navConnectButton.classList.add("btn-danger");
         navConnectButton.classList.remove("btn-secondary");
-        navConnectButton.onclick = connectWallet; // Set click handler
-        staffNavItem.style.display = "none"; // Hide Staff nav
-        return;
+        if (staffNavItem) staffNavItem.style.display = "none";
     }
-
-    console.log("🔹 Updating Navbar for Wallet:", walletAddress);
-    walletDisplay.style.display = "block";
-    walletDisplay.textContent = `Connected: ${walletAddress}`;
-    navConnectButton.textContent = "Disconnect Wallet";
-    navConnectButton.classList.remove("btn-danger");
-    navConnectButton.classList.add("btn-secondary");
-    navConnectButton.onclick = disconnectWallet;
-
-    const isAdminOrOrganizer = await isOrganizerOrAdmin(walletAddress);
-    staffNavItem.style.display = isAdminOrOrganizer ? "inline-block" : "none";
+    
+    // Reset button to default state
+    navConnectButton.innerHTML = walletAddress ? "Disconnect Wallet" : "Connect Wallet";
 }
 
 // ✅ Page Load Logic
@@ -228,16 +226,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         await initializeWeb3();
         await initializeContract();
 
-        const connectedWallet = sessionStorage.getItem("connectedWallet");
-        if (connectedWallet) {
-            console.log("✅ Wallet Detected:", connectedWallet);
-            await safeUpdateNavbar(connectedWallet);
-        } else {
-            console.log("❌ No wallet connected.");
-            await safeUpdateNavbar(null);
-        }
+        const navConnectButton = document.getElementById("navConnectWalletButton");
+        if (!navConnectButton) return;
 
-        document.getElementById("navConnectWalletButton").addEventListener("click", connectWallet);
+        // Single handler for all connection states
+        navConnectButton.addEventListener("click", async () => {
+            const connectedWallet = sessionStorage.getItem("connectedWallet");
+            connectedWallet ? await disconnectWallet() : await connectWallet();
+        });
+
+        // Initial UI update
+        const connectedWallet = sessionStorage.getItem("connectedWallet");
+        await safeUpdateNavbar(connectedWallet || null);
+        
     } catch (error) {
         console.error("❌ Error during page initialization:", error);
     }

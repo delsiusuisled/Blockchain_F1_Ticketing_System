@@ -36,15 +36,47 @@
     </div>
 </nav>
     
-    
-
-    <div class="container mt-4">
-        <h1>Welcome to the Admin Panel</h1>
-        <p>Use the navbar to manage tickets and organizers.</p>
+<main class="f1-admin-container">
+    <div class="f1-admin-header">
+        <h1 class="f1-admin-title">Race Control Dashboard</h1>
+        <p class="f1-admin-subtitle">Manage all circuit operations</p>
     </div>
 
-    <footer class="mt-4 text-center">
+    <div class="f1-admin-quickstats">
+        <div class="f1-admin-statcard">
+            <h3>Events</h3>
+            <p id="eventsCount" class="f1-admin-stat">Loading...</p>
+            <a href="eventview.html" class="f1-admin-statlink">Manage →</a>
+        </div>
+        <div class="f1-admin-statcard">
+            <h3>Tickets</h3>
+            <p id="ticketsCount" class="f1-admin-stat">Loading...</p>
+            <a href="ticketview.html" class="f1-admin-statlink">Manage →</a>
+        </div>
+        <div class="f1-admin-statcard">
+            <h3>Organizers</h3>
+            <p id="organizersCount" class="f1-admin-stat">Loading...</p>
+            <a href="organiserview.html" class="f1-admin-statlink">Manage →</a>
+        </div>
+    </div>
+</main>
+
+<!-- <footer class="f1-admin-footer">
+    <div class="f1-admin-footer-content">
+        <img src="f1-logo.png" alt="F1 Logo" class="f1-admin-footer-logo">
         <p>&copy; 2025 F1 Paddock Club. All Rights Reserved.</p>
-    </footer>
+    </div>
+</footer> -->
+
+<!-- Loading overlay -->
+<div class="f1-admin-loading">
+    <div class="f1-admin-spinner"></div>
+</div>
+<footer class="f1-admin-footer">
+    <div class="f1-admin-footer-content">
+        <img src="f1-logo.png" alt="F1 Logo" class="f1-admin-footer-logo">
+        <p style="color: #ffffff;">&copy; 2025 F1 Paddock Club. All Rights Reserved.</p>
+    </div>
+</footer>
 </body>
 </html>

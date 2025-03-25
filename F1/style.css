@@ -334,3 +334,65 @@ footer {
 .page-link:hover {
     background: #444;
 }
+
+        /* Spinner Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Connection Loader Styles */
+.connection-loader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+/* Wallet Status Display */
+.wallet-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.connected-indicator {
+    width: 10px;
+    height: 10px;
+    background: #4ade80;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+
+/* Connect Button States */
+#navConnectWalletButton {
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 140px;
+}
+
+#navConnectWalletButton:hover {
+    transform: translateY(-1px);
+}
+
+#navConnectWalletButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}

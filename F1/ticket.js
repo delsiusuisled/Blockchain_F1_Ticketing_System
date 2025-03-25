@@ -1,56 +1,91 @@
+// Constants
+const ADMIN_ACCOUNT = "0x39022f2935339Ff128e2917AFF08867098Fffc4e"; // Admin account for privileged actions
+let isWeb3Initialized = false; // Track Web3 initialization status
+
+// Initialize Web3
 async function initializeWeb3() {
-    if (typeof window.ethereum === "undefined") {
-        alert("⚠️ MetaMask is not installed. Please install it.");
-        return;
+    console.log("🔹 Initializing Web3...");
+
+    // Check if MetaMask is installed
+    if (!window.ethereum) {
+        alert("⚠️ Please install MetaMask!");
+        return false; // Return false if MetaMask is not installed
     }
 
+    // Initialize Web3
     window.web3 = new Web3(window.ethereum);
 
     try {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        window.currentAccount = (await window.web3.eth.getAccounts())[0];
+        // Check if already connected
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
 
-        sessionStorage.setItem("connectedWallet", window.currentAccount);
-        console.log("✅ Wallet connected:", window.currentAccount);
+        if (accounts.length > 0) {
+            // Wallet is already connected
+            window.currentAccount = accounts[0];
+            console.log("✅ Wallet already connected:", window.currentAccount);
+            sessionStorage.setItem("connectedWallet", window.currentAccount);
+            isWeb3Initialized = true;
+            await updateWalletDisplay();
+            return true;
+        } else {
+            // Request account access if not connected
+            const requestedAccounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            if (requestedAccounts.length > 0) {
+                window.currentAccount = requestedAccounts[0];
+                console.log("✅ Wallet connected after request:", window.currentAccount);
+                sessionStorage.setItem("connectedWallet", window.currentAccount);
+                isWeb3Initialized = true;
+                await updateWalletDisplay();
+                return true;
+            } else {
+                console.warn("⚠️ No accounts returned by MetaMask.");
+                alert("Please connect your wallet.");
+                return false;
+            }
+        }
     } catch (error) {
-        console.error("❌ Failed to connect wallet:", error);
+        console.error("❌ Wallet connection failed:", error);
+
+        // Handle specific MetaMask errors
+        if (error.code === 4001) {
+            alert("⚠️ Wallet connection rejected by user.");
+        } else {
+            alert("Wallet connection required");
+        }
+        return false;
     }
 }
 
-// Ensure Web3 is available before contract initialization
-async function initializeContract() {
-    if (!window.web3) await initializeWeb3();
-
-    if (!window.contract) {
-        window.contract = new window.web3.eth.Contract(F1TicketContract.abi, CONTRACT_ADDRESS);
-        console.log("🔹 Contract initialized.");
-    }
-}
-
-
-
-// Update Wallet Address in Navbar
+// Update Wallet Display
 async function updateWalletDisplay() {
     try {
-        const accounts = await web3.eth.getAccounts();
-        if (accounts.length > 0) {
-            currentAccount = accounts[0]; // Update the current account variable
-            const walletDisplayElement = document.getElementById("walletAddressDisplay");
-            if (walletDisplayElement) {
-                walletDisplayElement.textContent = `Connected Wallet: ${accounts[0]}`;
-            } else {
-                console.error("walletAddressDisplay element not found in the DOM.");
-            }
-        } else {
-            console.warn("No wallet connected.");
+        const walletDisplay = document.getElementById("walletAddressDisplay");
+        if (walletDisplay) {
+            walletDisplay.textContent = window.currentAccount
+                ? `Connected Wallet: ${window.currentAccount}`
+                : "";
         }
     } catch (error) {
         console.error("Error updating wallet display:", error);
     }
 }
 
-// ✅ Fetch Events from Smart Contract
-// ✅ Fetch Events from Smart Contract
+// Initialize Contract
+async function initializeContract() {
+    if (!isWeb3Initialized) {
+        await initializeWeb3();
+    }
+
+    if (!window.contract && window.web3) {
+        window.contract = new window.web3.eth.Contract(
+            F1TicketContract.abi,
+            CONTRACT_ADDRESS
+        );
+        console.log("🔹 Contract initialized.");
+    }
+}
+
+// Fetch All Events from Smart Contract
 async function fetchAllEvents() {
     try {
         if (!window.contract) await initializeContract();
@@ -66,7 +101,7 @@ async function fetchAllEvents() {
         return events.map(event => ({
             eventId: event[0],
             eventName: event[1],
-            eventDate: event[2],
+            eventTimestamp: event[2],
             eventLocation: event[3],
             price: event[4],
             availableTickets: event[5],
@@ -79,9 +114,8 @@ async function fetchAllEvents() {
     }
 }
 
-
-// ✅ Load Events into Table
-// ✅ Load Events into Table
+// Load Tickets into Table
+// Load Tickets into Table
 async function loadTickets() {
     console.log("✅ Running loadTickets...");
 
@@ -107,30 +141,41 @@ async function loadTickets() {
             try {
                 console.log(`🔍 Processing Event ${index}:`, event);
 
-                // ✅ Correct property access
-                const eventId = event.eventId; 
-                const eventName = event.eventName;
-                const eventDate = event.eventDate;
-                const eventLocation = event.eventLocation;
-                const availableTickets = event.availableTickets;
-                const isActive = event.status;
+                // Convert Unix timestamp to a readable date
+                let eventDate;
+                if (event.eventTimestamp && !isNaN(event.eventTimestamp)) {
+                    eventDate = new Date(event.eventTimestamp * 1000).toLocaleDateString();
+                } else {
+                    console.warn(`⚠️ Event ${index} has an invalid timestamp:`, event.eventTimestamp);
+                    eventDate = "N/A";
+                }
 
-                // ✅ Ensure price is a string before conversion
+                // Convert price to Ether
                 const priceInEther = window.web3.utils.fromWei(String(event.price), "ether");
 
-                const availability = availableTickets > 0 ? "Available" : "Sold Out";
+                // Determine event availability based on the timestamp
+                let availability;
+                const currentTimestamp = Math.floor(Date.now() / 1000); // Current time in Unix timestamp
 
-                // ✅ Construct event row in HTML
+                if (event.eventTimestamp < currentTimestamp) {
+                    availability = "Expired";
+                } else if (event.availableTickets > 0) {
+                    availability = "Available";
+                } else {
+                    availability = "Sold Out";
+                }
+
+                // Construct event row in HTML
                 const row = `
                     <tr>
-                        <td>${eventId}</td>
-                        <td>${eventName}</td>
+                        <td>${event.eventId}</td>
+                        <td>${event.eventName}</td>
                         <td>${eventDate}</td>
-                        <td>${eventLocation}</td>
+                        <td>${event.eventLocation}</td>
                         <td>${priceInEther} ETH</td>
                         <td>${availability}</td>
                         <td>
-                            <button class="btn btn-primary" onclick="navigateToEvent(${eventId})">View Details</button>
+                            <button class="btn btn-primary" onclick="navigateToEvent(${event.eventId})">View Tickets</button>
                         </td>
                     </tr>
                 `;
@@ -148,52 +193,49 @@ async function loadTickets() {
 }
 
 
-// **Navigate to Ticket Details**
-function navigateToEvent(ticketId) {
-    window.location.href = `ticketdataview.html?eventId=${ticketId}`;
+// Navigate to Ticket Details
+function navigateToEvent(eventId) {
+    window.location.href = `ticketdataview.html?eventId=${eventId}`;
 }
 
-// **Ensure Tickets Load Properly on Page Load with Delay**
-window.onload = async () => {
-    console.log("🔹 Window fully loaded, initializing Web3...");
-    await initializeWeb3();
-
-    setTimeout(async () => {
-        await initializeContract();
-        await loadTickets();
-    }, 500); // Short delay to ensure initialization
-};
-
-
-
-// Create Ticket
-async function createTicket() {
-    const eventName = document.getElementById("eventName").value;
-    const eventDate = document.getElementById("eventDate").value;
-    const eventLocation = document.getElementById("eventLocation").value;
-    const price = web3.utils.toWei(document.getElementById("price").value, "ether");
-    const metadataURI = document.getElementById("metadataURI").value;
-
-    try {
-        await contract.methods
-            .createTicket(eventName, eventDate, eventLocation, price, metadataURI)
-            .send({ from: currentAccount });
-
-        alert("Ticket created successfully!");
-        window.location.href = "ticketview.html";
-    } catch (error) {
-        console.error("Error creating ticket:", error);
+// Handle Wallet Changes
+window.ethereum.on("accountsChanged", async (accounts) => {
+    if (accounts.length > 0) {
+        window.currentAccount = accounts[0];
+        sessionStorage.setItem("connectedWallet", window.currentAccount);
+        await updateWalletDisplay();
+        await loadTickets(); // Reload tickets when wallet changes
+    } else {
+        window.currentAccount = null;
+        sessionStorage.removeItem("connectedWallet");
+        await updateWalletDisplay();
     }
-}
+});
 
-// On Page Load
+// DOMContentLoaded Handler
 document.addEventListener("DOMContentLoaded", async () => {
-    try {
-        await initializeWeb3();
-        await initializeContract();
-        await updateWalletDisplay(); // Update wallet display on page load
-        await loadTickets(); // Load all tickets
-    } catch (error) {
-        console.error("❌ Error initializing page:", error);
+    console.log("🔹 DOM Content Loaded: Initializing Web3...");
+
+    // Check for stored wallet first
+    const storedWallet = sessionStorage.getItem("connectedWallet");
+    if (storedWallet) {
+        window.currentAccount = storedWallet;
+        console.log("Using stored wallet:", storedWallet);
     }
+
+    // Initialize Web3
+    const web3Initialized = await initializeWeb3();
+    if (!web3Initialized) {
+        console.error("❌ Web3 initialization failed.");
+        return;
+    }
+
+    // Initialize contract
+    await initializeContract();
+
+    // Update wallet display
+    await updateWalletDisplay();
+
+    // Load tickets
+    await loadTickets();
 });

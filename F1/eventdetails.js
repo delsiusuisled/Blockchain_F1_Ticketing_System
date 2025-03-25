@@ -86,17 +86,21 @@ async function loadEventDetails() {
 
         const priceInWei = eventDetails.price;
         document.getElementById("eventName").textContent = eventDetails.eventName;
-        document.getElementById("eventDate").textContent = eventDetails.eventDate;
+        // Change eventDate to eventTimestamp conversion
+        document.getElementById("eventDate").textContent = new Date(eventDetails.eventTimestamp * 1000).toLocaleDateString();
         document.getElementById("eventLocation").textContent = eventDetails.eventLocation;
         document.getElementById("eventPrice").textContent = `${window.web3.utils.fromWei(priceInWei, "ether")} ETH`;
-        document.getElementById("availableTickets").textContent = eventDetails.availableTickets;
-
+        document.getElementById("maxTickets").textContent = eventDetails.maxTickets;
+        
+        const maxTickets = eventDetails.maxTickets - eventDetails.ticketsMinted;
+        document.getElementById("maxTickets").textContent = maxTickets;
         const purchaseButton = document.getElementById("purchaseTicketButton");
-        const eventDate = new Date(eventDetails.eventDate);
+        // Update purchase button logic
+        const eventDate = new Date(eventDetails.eventTimestamp * 1000); // Convert from UNIX timestamp
         const currentDate = new Date();
 
-        if (eventDate < currentDate || eventDetails.availableTickets === "0") {
-            purchaseButton.textContent = eventDetails.availableTickets === "0" ? "Fully Bought" : "Event Ended";
+        if (eventDate < currentDate || maxTickets === 0) {
+            purchaseButton.textContent = maxTickets === 0 ? "Fully Bought" : "Event Ended";
             purchaseButton.disabled = true;
         } else {
             purchaseButton.onclick = () => purchaseTicket(eventId, priceInWei);

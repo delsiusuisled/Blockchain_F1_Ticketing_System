@@ -9,6 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" defer></script>
     <script type="text/javascript" src="https://unpkg.com/web3@1.7.3/dist/web3.min.js"></script>
+    <script src="wallet.js" defer></script>
     <script src="login.js" defer></script>
     <style>
         body {
@@ -43,7 +44,67 @@
             background-color: #ff0000;
             color: #fff;
         }
+        /* Spinner Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 
+/* Connection Loader Styles */
+.connection-loader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+/* Wallet Status Display */
+.wallet-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.connected-indicator {
+    width: 10px;
+    height: 10px;
+    background: #4ade80;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+
+/* Connect Button States */
+#navConnectWalletButton {
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 140px;
+}
+
+#navConnectWalletButton:hover {
+    transform: translateY(-1px);
+}
+
+#navConnectWalletButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
         /* Adjusted Slideshow */
         .slideshow-container {
             margin: 20px auto;
@@ -180,7 +241,7 @@
                 </ul>
             
                 <!-- Connected Wallet Address Display -->
-                <span id="walletAddressDisplay" class="text-light me-3" style="display: none;"></span>
+                <span id="walletDisplay" class="text-light me-3" style="display: none;"></span>
                 
                 <!-- Connect Wallet Button -->
                 <button id="navConnectWalletButton" class="btn btn-danger">Connect Wallet</button>

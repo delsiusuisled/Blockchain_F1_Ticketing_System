@@ -1,170 +1,230 @@
-document.addEventListener("DOMContentLoaded", async () => {
-    await initializeWeb3();
-    setTimeout(async () => {
-        await initializeContract();
-        loadMarketplaceTickets();
-    }, 1000); // Delay ensures contract is loaded
-});
+let isWeb3Initialized = false;
+let isContractInitialized = false;
+let isConnecting = false
 
-
-// ✅ Properly Initialize Web3
+// ✅ Ensure Web3 is Initialized Before Interacting with the Contract
 async function initializeWeb3() {
-    if (window.ethereum) {
-        try {
-            // ✅ Set `window.web3` globally
-            window.web3 = new Web3(window.ethereum);
+    if (isWeb3Initialized) {
+        console.log("🔹 Web3 is already initialized.");
+        return;
+    }
 
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            window.currentAccount = accounts[0]; // ✅ Store account globally
+    if (typeof window.ethereum === "undefined") {
+        alert("⚠️ MetaMask is not installed. Please install it.");
+        throw new Error("MetaMask not detected.");
+    }
 
-            console.log("✅ MetaMask detected, Web3 initialized.");
+    try {
+        console.log("🔹 Initializing Web3...");
+        const provider = window.ethereum;
+        window.web3 = new Web3(provider);
 
-            const connectedWallet = sessionStorage.getItem("connectedWallet");
-            if (connectedWallet) {
-                updateWalletDisplay(connectedWallet);
-                await isAdminOrOrganizer(connectedWallet); // ✅ Ensure admin check happens only if web3 is ready
-            }
-        } catch (error) {
-            console.error("❌ Error initializing Web3:", error);
-        }
-    } else {
-        alert("⚠️ MetaMask is required to interact with the marketplace.");
-        console.error("❌ MetaMask is not installed or not detected.");
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
+        window.currentAccount = accounts[0];
+        sessionStorage.setItem("connectedWallet", window.currentAccount);
+        console.log("✅ Wallet connected:", window.currentAccount);
+
+        isWeb3Initialized = true;
+    } catch (error) {
+        console.error("❌ Failed to initialize Web3 or connect wallet:", error);
     }
 }
 
-
-// ✅ Ensure admin/organizer check is called after contract loads
+// ✅ Ensure Contract is Initialized Before Interacting
 async function initializeContract() {
+    if (isContractInitialized) {
+        console.log("🔹 Contract is already initialized.");
+        return;
+    }
+
+    if (!window.web3) {
+        console.error("Web3 is not initialized. Initializing now...");
+        await initializeWeb3();
+    }
+
     try {
-        if (!window.web3 || !window.web3.eth) {
-            console.error("❌ Web3 is not initialized. Ensure MetaMask is installed and connected.");
-            return;
-        }
+        console.log("🔹 Initializing Contract...");
+        window.contract = new window.web3.eth.Contract(F1TicketContract.abi, CONTRACT_ADDRESS);
+        console.log("✅ Contract initialized successfully.");
 
-        if (!F1TicketContract || !F1TicketContract.abi || !CONTRACT_ADDRESS) {
-            console.error("❌ Missing ABI or Contract Address. Check contracts.js.");
-            return;
-        }
-
-        window.contract = new window.web3.eth.Contract(F1TicketContract.abi, CONTRACT_ADDRESS); 
-        console.log("🔹 Contract initialized:", window.contract);
-
-        if (!window.contract || !window.contract.methods) {
-            console.error("❌ Contract is not properly initialized.");
-            return;
-        }
-
-        // ✅ Ensure contract is available before checking admin/organizer status
-        if (window.currentAccount) {
-            await isAdminOrOrganizer(window.currentAccount);
-        }
+        isContractInitialized = true;
     } catch (error) {
         console.error("❌ Error initializing contract:", error);
     }
 }
 
-
-
-// ✅ Connect Wallet and Check Admin/Organizer Status
-async function connectWallet() {
+// Check Admin Role
+async function isAdmin(walletAddress) {
     try {
-        if (!window.ethereum) {
-            alert("⚠️ MetaMask is required to connect.");
+        await initializeWeb3();
+        await initializeContract();
+
+        const ADMIN_ROLE = window.web3.utils.keccak256("ADMIN_ROLE"); // Ensure web3.utils is available
+        const isAdmin = await window.contract.methods.hasRole(ADMIN_ROLE, walletAddress).call();
+        console.log(`🔹 isAdmin(${walletAddress}): ${isAdmin}`);
+        return isAdmin;
+    } catch (error) {
+        console.error("❌ Error checking admin role:", error);
+        return false;
+    }
+}
+
+// Check Organizer Role
+async function isOrganizer(walletAddress) {
+    try {
+        await initializeWeb3();
+        await initializeContract();
+
+        const ORGANIZER_ROLE = window.web3.utils.keccak256("ORGANIZER_ROLE"); // Ensure web3.utils is available
+        const isOrganizer = await window.contract.methods.hasRole(ORGANIZER_ROLE, walletAddress).call();
+        console.log(`🔹 isOrganizer(${walletAddress}): ${isOrganizer}`);
+        return isOrganizer;
+    } catch (error) {
+        console.error("❌ Error checking organizer role:", error);
+        return false;
+    }
+}
+
+// Check if Wallet is Admin or Organizer
+async function isOrganizerOrAdmin(walletAddress) {
+    try {
+        const admin = await isAdmin(walletAddress);
+        const organizer = await isOrganizer(walletAddress);
+
+        console.log(`🔹 Checking Admin/Organizer Role: isAdmin = ${admin}, isOrganizer = ${organizer}`);
+        return admin || organizer;
+    } catch (error) {
+        console.error("❌ Error checking admin/organizer role:", error);
+        return false;
+    }
+}
+
+
+// ✅ Connect Wallet with Loading State
+async function connectWallet() {
+    if (isConnecting) return;
+    isConnecting = true;
+
+    const navConnectButton = document.getElementById("navConnectWalletButton");
+    if (navConnectButton) {
+        // Add spinner and disable button
+        navConnectButton.innerHTML = `
+            Connecting...
+            <div class="animate-spin spinner-border h-5 w-5 border-b-2 rounded-full mr-2"></div>
+        `;
+        navConnectButton.disabled = true;
+    }
+
+    try {
+        if (typeof window.ethereum === "undefined") {
+            alert("⚠️ MetaMask is not installed. Please install it.");
             return;
         }
 
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        window.currentAccount = accounts[0]; // ✅ Ensure this is stored globally
+        const walletAddress = accounts[0];
 
-        sessionStorage.setItem("connectedWallet", window.currentAccount);
-        updateWalletDisplay(window.currentAccount);
+        console.log("✅ Wallet Connected:", walletAddress);
+        sessionStorage.setItem("connectedWallet", walletAddress);
 
-        console.log("✅ Wallet connected:", window.currentAccount);
+        await initializeWeb3();
+        await initializeContract();
+        await safeUpdateNavbar(walletAddress);
 
-        // ✅ Immediately check if user is an Admin or Organizer
-        await isAdminOrOrganizer(window.currentAccount);
     } catch (error) {
         console.error("❌ Error connecting wallet:", error);
-    }
-}
-
-// ✅ Function to Show/Hide Staff Navigation Item
-function toggleStaffNavItem(show) {
-    const staffNavItem = document.getElementById("staffNavItem");
-    if (!staffNavItem) {
-        console.warn("⚠️ Staff button not found in the DOM.");
-        return;
-    }
-
-    staffNavItem.style.display = show ? "inline-block" : "none"; // ✅ Ensures it remains visible in `inline-block`
-    console.log(`📢 Staff Nav Item ${show ? "Visible" : "Hidden"}`);
-}
-
-
-
-// ✅ Check if the connected user is an Admin or Organizer
-async function isAdminOrOrganizer(walletAddress) {
-    try {
-        if (!window.contract || !window.contract.methods) {
-            console.warn("⚠️ Contract is not yet initialized. Retrying...");
-            setTimeout(() => isAdminOrOrganizer(walletAddress), 1000); // Retry after 1 sec
-            return;
+        alert("Failed to connect wallet. Please try again.");
+    } finally {
+        isConnecting = false;
+        if (navConnectButton) {
+            navConnectButton.disabled = false;
         }
-
-        const userAddress = walletAddress.toLowerCase();
-
-        const isAdmin = await window.contract.methods.hasRole(
-            window.web3.utils.keccak256("DEFAULT_ADMIN_ROLE"), 
-            userAddress
-        ).call();
-
-        const isOrganizer = await window.contract.methods.hasRole(
-            window.web3.utils.keccak256("ORGANIZER_ROLE"), 
-            userAddress
-        ).call();
-
-        console.log(`📢 isAdmin: ${isAdmin}, isOrganizer: ${isOrganizer}`);
-
-        toggleStaffNavItem(isAdmin || isOrganizer);
-    } catch (error) {
-        console.error("❌ Error checking admin/organizer status:", error);
     }
 }
 
 
-// ✅ Disconnect Wallet and Hide Staff Nav
-function disconnectWallet() {
+// ✅ Disconnect Wallet with Proper UI Reset
+async function disconnectWallet() {
+    console.log("🔹 Disconnecting Wallet...");
+    
+    // Full cleanup
     sessionStorage.removeItem("connectedWallet");
+    window.currentAccount = null;
+    window.web3 = null;
+    window.contract = null;
+    isWeb3Initialized = false;
+    isContractInitialized = false;
 
-    const walletDisplay = document.getElementById("walletAddressDisplay");
-    const connectButton = document.getElementById("connectWalletButton");
-    const disconnectButton = document.getElementById("disconnectWalletButton");
+    // Force UI update
+    await safeUpdateNavbar(null);
+    
+    // Page-specific cleanup
+    if (window.location.pathname.includes("mytickets.html")) {
+        document.getElementById("myTicketsTableBody").innerHTML = "";
+    }
+    
+    console.log("✅ Wallet fully disconnected");
 
-    if (walletDisplay) walletDisplay.textContent = "Wallet: Not Connected";
-    if (connectButton) connectButton.style.display = "block";
-    if (disconnectButton) disconnectButton.style.display = "none";
+    // // Add a small delay for UI smoothness
+    // setTimeout(() => {
+    //     console.log("✅ Wallet Disconnected.");
 
-    // ✅ Hide Staff Nav Button
-    toggleStaffNavItem(false);
-
-    console.log("🔌 Wallet disconnected.");
+    //     // Reset Navbar to "Connect Wallet" state
+    //     if (navConnectButton) {
+    //         navConnectButton.textContent = "Connect Wallet";
+    //         navConnectButton.disabled = false; // Enable the button
+    //         navConnectButton.classList.add("btn-danger");
+    //         navConnectButton.classList.remove("btn-secondary");
+    //         navConnectButton.onclick = connectWallet; // Reset to connect logic
+    //     }
+    // }, 500);
 }
 
+// ✅ Safe Update Navbar Function
+async function safeUpdateNavbar(walletAddress) {
+    const walletDisplay = document.getElementById("walletDisplay");
+    const navConnectButton = document.getElementById("navConnectWalletButton");
+    const staffNavItem = document.getElementById("staffNavItem");
 
-// Update Wallet Display
-function updateWalletDisplay(walletAddress) {
-    document.getElementById("walletAddressDisplay").textContent = `Wallet: ${walletAddress}`;
-    document.getElementById("connectWalletButton").style.display = "none";
-    document.getElementById("disconnectWalletButton").style.display = "block";
+    if (!walletDisplay || !navConnectButton) return;
+
+    // Visual state management
+    if (walletAddress) {
+        // Connected state
+        walletDisplay.innerHTML = `
+            <div class="wallet-status">
+                <span class="connected-indicator"></span>
+                ${walletAddress}
+            </div>
+        `;
+        walletDisplay.style.display = "flex";
+        navConnectButton.classList.remove("btn-danger");
+        navConnectButton.classList.add("btn-secondary");
+        
+        // Staff check
+        if (staffNavItem) {
+            const isAdminOrOrganizer = await isOrganizerOrAdmin(walletAddress);
+            staffNavItem.style.display = isAdminOrOrganizer ? "inline-block" : "none";
+        }
+    } else {
+        // Disconnected state
+        walletDisplay.textContent = "Not Connected";
+        walletDisplay.style.display = "inline-block"; // Changed from none to inline-block
+        navConnectButton.classList.add("btn-danger");
+        navConnectButton.classList.remove("btn-secondary");
+        if (staffNavItem) staffNavItem.style.display = "none";
+    }
+    
+    // Reset button to default state
+    navConnectButton.innerHTML = walletAddress ? "Disconnect Wallet" : "Connect Wallet";
 }
 
+// ✅ Load Marketplace Tickets from Contract (Updated)
 // ✅ Load Marketplace Tickets from Contract (Updated)
 async function loadMarketplaceTickets() {
     console.log("🔍 Fetching resale tickets...");
     const ticketsForSale = await window.contract.methods.getResaleTickets().call();
-    console.log("📢 Tickets for sale:", ticketsForSale); // ✅ Debugging output
-    
+    console.log("📢 Tickets for sale:", ticketsForSale);
 
     const marketplaceTableBody = document.getElementById("marketplaceTableBody");
     marketplaceTableBody.innerHTML = "Loading...";
@@ -176,9 +236,6 @@ async function loadMarketplaceTickets() {
             return;
         }
 
-        console.log("🔹 Fetching resale tickets...");
-        const ticketsForSale = await window.contract.methods.getResaleTickets().call();
-
         marketplaceTableBody.innerHTML = "";
 
         if (ticketsForSale.length === 0) {
@@ -187,19 +244,25 @@ async function loadMarketplaceTickets() {
         }
 
         ticketsForSale.forEach(ticket => {
-            const priceETH = window.web3.utils.fromWei(ticket.price, "ether");
+            // Ensure eventTimestamp is properly handled as a UNIX timestamp (seconds)
+            const eventDate = new Date(Number(ticket.eventTimestamp) * 1000).toLocaleDateString(); // Convert to milliseconds
+
+            // Convert BigInt to string before passing to fromWei
+            const priceETH = window.web3.utils.fromWei(ticket.price.toString(), "ether");  // Convert BigInt to string
+
             const row = `
                 <tr>
                     <td>${ticket.ticketId}</td>
                     <td>${ticket.eventName}</td>
-                    <td>${ticket.eventDate}</td>
+                    <td>${eventDate}</td>
                     <td>${ticket.eventLocation}</td>
                     <td>${ticket.currentOwner}</td>
                     <td>${priceETH} ETH</td>
                     <td>
                         <button class="btn btn-primary btn-sm buyButton" 
                                 data-ticket-id="${ticket.ticketId}"
-                                data-price="${ticket.price}">
+                                data-price="${ticket.price}"
+                                data-owner="${ticket.currentOwner}">
                             Buy
                         </button>
                     </td>
@@ -214,25 +277,7 @@ async function loadMarketplaceTickets() {
     }
 }
 
-
-
-
-document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
-document.getElementById("disconnectWalletButton").addEventListener("click", disconnectWallet);
-
-
-function attachBuyButtonListeners() {
-    const buyButtons = document.querySelectorAll(".buyButton");
-    buyButtons.forEach((button) => {
-        button.addEventListener("click", async (event) => {
-            const ticketId = event.target.getAttribute("data-ticket-id");
-            const price = event.target.getAttribute("data-price");
-            await buyTicket(ticketId, price);
-        });
-    });
-}
-
-async function buyTicket(ticketID, price) {
+async function buyTicket(ticketID, price, ownerAddress) {
     try {
         if (!window.contract) {
             console.error("❌ Contract is not initialized.");
@@ -240,18 +285,17 @@ async function buyTicket(ticketID, price) {
             return;
         }
 
-        // ✅ Ensure currentAccount is set (fallback to sessionStorage)
-        if (!window.currentAccount) {
-            const storedAccount = sessionStorage.getItem("connectedWallet");
-            if (storedAccount) {
-                window.currentAccount = storedAccount;
-            } else {
-                console.error("❌ Wallet not connected.");
-                alert("⚠️ Please connect your wallet before making a purchase.");
-                return;
-            }
+        // Get current account
+        const currentAccount = window.currentAccount || sessionStorage.getItem("connectedWallet");
+        
+        // Check if buyer is the seller
+        if (currentAccount.toLowerCase() === ownerAddress.toLowerCase()) {
+            alert("⚠️ You can't buy your own ticket! Perhaps you can unsell it at My Tickets page?");
+            window.location.href = "mytickets.html"; // Redirect to My Tickets page
+            return;
         }
 
+        // Rest of your existing buyTicket logic
         const ticket = await window.contract.methods.tickets(ticketID).call();
         if (!ticket.isForResale) {
             alert("⚠️ Ticket is no longer available.");
@@ -263,7 +307,7 @@ async function buyTicket(ticketID, price) {
 
         await window.contract.methods.purchaseResaleTicket(ticketID)
             .send({ 
-                from: window.currentAccount,  // ✅ Now correctly references currentAccount
+                from: currentAccount,
                 value: price,
                 gas: 300000 
             });
@@ -276,6 +320,49 @@ async function buyTicket(ticketID, price) {
     }
 }
 
+function attachBuyButtonListeners() {
+    const buyButtons = document.querySelectorAll(".buyButton");
+    buyButtons.forEach((button) => {
+        button.addEventListener("click", async (event) => {
+            const ticketId = event.target.getAttribute("data-ticket-id");
+            const price = event.target.getAttribute("data-price");
+            const ownerAddress = event.target.getAttribute("data-owner");
+            await buyTicket(ticketId, price, ownerAddress);
+        });
+    });
+}
 
-document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
-document.getElementById("disconnectWalletButton").addEventListener("click", disconnectWallet);
+// ✅ Page Load Logic
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        await initializeWeb3();
+        await initializeContract();
+
+        const navConnectButton = document.getElementById("navConnectWalletButton");
+        if (!navConnectButton) return;
+
+        // Single handler for all connection states
+        navConnectButton.addEventListener("click", async () => {
+            const connectedWallet = sessionStorage.getItem("connectedWallet");
+            if (connectedWallet) {
+                await disconnectWallet();
+            } else {
+                await connectWallet();
+            }
+        });
+
+        // Initial UI update
+        const connectedWallet = sessionStorage.getItem("connectedWallet");
+        await safeUpdateNavbar(connectedWallet || null);
+        
+    } catch (error) {
+        console.error("❌ Error during page initialization:", error);
+    }
+});
+
+window.onload = async () => {
+    console.log("🔹 Window fully loaded...");
+    await initializeWeb3();
+    await initializeContract();
+    await loadMarketplaceTickets();
+};
