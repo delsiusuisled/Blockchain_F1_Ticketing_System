@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event View - Staff Backend</title>
+    <link rel="stylesheet" href="admin.css">
+    <script type="text/javascript" src="contracts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.1/dist/web3.min.js"></script>
+    <script type="text/javascript" src="event.js" defer></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" defer></script>
+    <style>
+        /* Custom Styles for Pagination */
+        .pagination-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .pagination-container .page-item .page-link {
+            background-color: #ff0000;
+            /* Red background for buttons */
+            color: white;
+            border: none;
+        }
+
+        .pagination-container .page-item .page-link:hover {
+            background-color: #cc0000;
+            /* Darker red on hover */
+        }
+
+        .pagination-container span {
+            margin: 0 10px;
+            font-weight: bold;
+        }
+
+        /* Button Styling */
+        .btn-update {
+            background-color: #ffc107;
+            /* Yellow */
+            color: black;
+            border: none;
+        }
+
+        .btn-update:hover {
+            background-color: #e0a800;
+            /* Darker yellow */
+        }
+
+        .btn-delete {
+            background-color: #ff0000;
+            /* Red */
+            color: white;
+            border: none;
+        }
+
+        .btn-delete:hover {
+            background-color: #cc0000;
+            /* Darker red */
+        }
+
+        /* Add to your existing styles */
+#eventSearch {
+    max-width: 300px;
+}
+
+.btn-group .btn {
+    border-radius: 0;
+    transition: all 0.3s ease;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.btn-outline-success {
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-outline-success:hover {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: white;
+}
+/* Active filter button styles */
+.btn-group .btn.active {
+    color: white !important;
+}
+
+.btn-group .btn-outline-danger.active {
+    background-color: #dc3545;
+}
+
+.btn-group .btn-outline-success.active {
+    background-color: #28a745;
+}
+
+.btn-group .btn-outline-secondary.active {
+    background-color: #6c757d;
+}
+
+/* Hover states for buttons */
+.btn-group .btn-outline-danger:hover:not(.active) {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.btn-group .btn-outline-success:hover:not(.active) {
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.btn-group .btn-outline-secondary:hover:not(.active) {
+    background-color: rgba(108, 117, 125, 0.1);
+}
+
+#searchButton {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+#searchButton:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Update based on active filter */
+.filter-available #searchButton {
+    border-color: #28a745;
+    color: #28a745;
+}
+
+.filter-available #searchButton:hover {
+    background-color: #28a745;
+    color: white;
+}
+
+.filter-expired #searchButton {
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+.filter-expired #searchButton:hover {
+    background-color: #6c757d;
+    color: white;
+}
+    </style>
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="admin.html">
+                <img src="f1-logo.png" alt="F1 Logo" width="50"> Admin Panel
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="eventview.html">Events</a></li>
+                    <li class="nav-item"><a class="nav-link" href="allticketview.html">All Tickets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="ticketview.html">Tickets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="organiserview.html">Organizers</a></li>
+                </ul>
+                <div id="walletAddressDisplay" class="ms-auto text-white">
+                    <!-- Wallet address will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <!-- Search Bar -->
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" id="eventSearch" class="form-control" placeholder="Search events...">
+                    <button class="btn btn-outline-secondary" type="button" onclick="applyFilters()">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filter Controls -->
+            <div class="col-md-6">
+                <div class="d-flex justify-content-end">
+                    <div class="btn-group" role="group">
+                        <button type="button" id="filterAll" class="btn btn-outline-danger active" onclick="setEventFilter('all')">
+                            <i class="bi bi-collection"></i> All
+                        </button>
+                        <button type="button" id="filterAvailable" class="btn btn-outline-success" onclick="setEventFilter('available')">
+                            <i class="bi bi-check-circle"></i> Available
+                        </button>
+                        <button type="button" id="filterExpired" class="btn btn-outline-secondary" onclick="setEventFilter('expired')">
+                            <i class="bi bi-clock-history"></i> Expired
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <!-- Create Event Button -->
+            <button class="btn btn-primary" onclick="window.location.href='eventcreate.html'">Create Event</button>
+    
+            <!-- Pagination Controls -->
+            <div class="pagination-container">
+                <button class="btn page-link" id="prevPage" onclick="changePage(-1)" style="background-color: #ff0000; color: white; border: none; padding: 8px 16px;">Previous</button>
+                <span id="currentPageDisplay">Page 1 of 1</span>
+                <button class="btn page-link" id="nextPage" onclick="changePage(1)" style="background-color: #ff0000; color: white; border: none; padding: 8px 16px;">Next</button>
+            </div>
+        </div>
+
+        <h2 style="text-align: center;">Events</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Event ID</th>
+                    <th>Event Name</th>
+                    <th>Event Date</th>
+                    <th>Event Location</th>
+                    <th>Price (ETH)</th>
+                    <th>Available Tickets Left</th>
+                    <th>Tickets Minted</th>
+                    <th>Max Tickets</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="eventTableBody">
+                <!-- Dynamic rows will be inserted here -->
+            </tbody>
+        </table>
+
+    </div>
+</body>
+
+</html>

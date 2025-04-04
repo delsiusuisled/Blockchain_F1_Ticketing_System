@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View QR Code - F1 Paddock Club</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: Arial, sans-serif;
+        }
+        .qr-container {
+            text-align: center;
+            margin-top: 50px;
+        }
+        .qr-code {
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            max-width: 100%;
+            height: auto;
+        }
+        .ticket-details {
+            margin-top: 20px;
+            font-size: 1.1em;
+            line-height: 1.5;
+            color: #333;
+        }
+        .back-button {
+            margin-top: 20px;
+        }
+        .btn-back {
+            background-color: #ff0000;
+            width: 60%;
+            margin-bottom: 10%;
+            font-size: 1.1em;
+        }
+        /* Additional styling for mobile responsiveness */
+        @media (max-width: 768px) {
+            .qr-code {
+                width: 80%;
+            }
+            .ticket-details {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <main class="container">
+        <div class="qr-container">
+            <h2>Show this QR code to verify your entry into the Paddock Club area.</h2>
+            <div id="qr-code" class="qr-code" alt="QR Code"></div>
+            <div class="ticket-details">
+                <p><strong>Ticket ID:</strong> <span id="ticket-id"></span></p>
+                <p><strong>Event Name:</strong> <span id="event-name"></span></p>
+                <p><strong>Event Date:</strong> <span id="event-date"></span></p>
+                <p><strong>Event Location:</strong> <span id="event-location"></span></p>
+                <p><strong>Price:</strong> <span id="price-eth"></span></p>
+            </div>
+            <!-- Add a Back button -->
+            <div class="back-button">
+                <a href="mytickets.html" class="btn btn-primary btn-back" role="button" aria-label="Go back to your tickets page">Back</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Retrieve ticket details from sessionStorage
+        const ticket = JSON.parse(sessionStorage.getItem("ticketToView"));
+
+        if (ticket) {
+            // Display ticket details
+            document.getElementById("ticket-id").textContent = ticket.ticketId;
+            document.getElementById("event-name").textContent = ticket.eventName;
+            document.getElementById("event-date").textContent = ticket.eventDate;
+            document.getElementById("event-location").textContent = ticket.eventLocation;
+            document.getElementById("price-eth").textContent = ticket.price + " ETH";
+
+            // Generate QR code
+            const qrCodeData = JSON.stringify(ticket); // Use ticket data for the QR code
+            new QRCode(document.getElementById("qr-code"), {
+                text: qrCodeData,
+                width: 256,
+                height: 256
+            });
+        } else {
+            // Redirect back if no ticket data is found
+            alert("No ticket data found. Redirecting back to My Tickets.");
+            window.location.href = "mytickets.html";
+        }
+    </script>
+</body>
+</html>
