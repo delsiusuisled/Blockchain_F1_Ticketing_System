@@ -1341,7 +1341,7 @@ const ADMIN_ADDRESS = "0x39022f2935339ff128e2917aff08867098fffc4e"
 // ✅ Initialize presetTickets AFTER web3 is initialized
 async function initializeWeb3() {
     if (typeof window.ethereum !== "undefined") {
-        web3 = new Web3(window.ethereum);
+        web3 = new web3(window.ethereum);
         try {
             const accounts = await ethereum.request({ method: "eth_requestAccounts" });
             currentAccount = accounts[0];

@@ -100,6 +100,28 @@ async function isOrganizerOrAdmin(walletAddress) {
     }
 }
 
+// Function to check wallet connection and toggle visibility
+async function toggleWalletConnectDiv() {
+    try {
+        const connectDiv = document.querySelector('.login-container');
+        if (!connectDiv) return;
+
+        // Check if wallet is connected
+        const storedWallet = sessionStorage.getItem("connectedWallet");
+        const isConnected = storedWallet || (window.ethereum && (await window.ethereum.request({ method: 'eth_accounts' })).length > 0);
+
+        // Toggle visibility based on connection status
+        connectDiv.style.display = isConnected ? 'none' : 'block';
+        
+        // Update the status message
+        const statusMessage = document.getElementById('statusMessage');
+        if (statusMessage) {
+            statusMessage.textContent = isConnected ? 'Wallet connected!' : 'Please connect your wallet to continue';
+        }
+    } catch (error) {
+        console.error('Error checking wallet connection:', error);
+    }
+}
 
 // ✅ Connect Wallet with Loading State
 async function connectWallet() {
@@ -131,6 +153,7 @@ async function connectWallet() {
         await initializeWeb3();
         await initializeContract();
         await safeUpdateNavbar(walletAddress);
+        await toggleWalletConnectDiv();
 
     } catch (error) {
         console.error("❌ Error connecting wallet:", error);
@@ -158,6 +181,7 @@ async function disconnectWallet() {
 
     // Force UI update
     await safeUpdateNavbar(null);
+    await toggleWalletConnectDiv();
     
     // Page-specific cleanup
     if (window.location.pathname.includes("mytickets.html")) {
@@ -225,6 +249,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
         await initializeWeb3();
         await initializeContract();
+        await toggleWalletConnectDiv();
+    
+        // Listen for wallet connection changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', toggleWalletConnectDiv);
+        }
 
         const navConnectButton = document.getElementById("navConnectWalletButton");
         if (!navConnectButton) return;
