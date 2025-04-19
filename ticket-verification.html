@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ticket Verification</title>
+    <!-- Use updated ethers.js CDN -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.6.umd.min.js"></script>
+    <script type="text/javascript" src="contracts.js"></script>
+    <style>
+        .verification-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            text-align: center;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status-valid { color: #28a745; }
+        .status-invalid { color: #dc3545; }
+        img { margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div class="verification-container">
+        <img src="f1-logo.png" alt="F1 Logo" width="150">
+        <h1>Ticket Verification</h1>
+        <div id="verificationStatus" class="mb-3"></div>
+        <div id="ticketDetails" class="text-start"></div>
+    </div>
+
+    <script>
+        async function verifyTicket() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ticketId = urlParams.get('id');
+            const providedHash = urlParams.get('hash');
+
+            if (!ticketId || !providedHash) {
+                showResult("❌ Missing verification parameters", false);
+                return;
+            }
+
+            try {
+                // Initialize provider and contract
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const contract = new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    F1TicketContract.abi,
+                    provider
+                );
+
+                // Fetch verification data
+                const [currentOwner, storedHash] = await Promise.all([
+                    contract.getCurrentOwner(ticketId),
+                    contract.getQRCodeHash(ticketId)
+                ]);
+
+                // Validate ownership and hash
+                const isValid = providedHash === storedHash;
+
+                // Show results
+                showResult(isValid ? "✅ VALID TICKET" : "❌ INVALID TICKET", isValid);
+                
+                if (isValid) {
+                    const ticket = await contract.tickets(ticketId);
+                    showTicketDetails(ticket, currentOwner);
+                }
+            } catch (error) {
+                console.error("Verification error:", error);
+                showResult(`🔴 Verification failed: ${error.message}`, false);
+            }
+        }
+
+        function showResult(message, isValid) {
+            const statusDiv = document.getElementById('verificationStatus');
+            statusDiv.innerHTML = `<h2 class="${isValid ? 'status-valid' : 'status-invalid'}">${message}</h2>`;
+        }
+
+        function showTicketDetails(ticket, owner) {
+            const detailsDiv = document.getElementById('ticketDetails');
+            const eventDate = new Date(ticket.eventTimestamp * 1000).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+            
+            detailsDiv.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Ticket Details</h5>
+                        <p class="card-text"><strong>Event:</strong> ${ticket.eventName}</p>
+                        <p class="card-text"><strong>Date:</strong> ${eventDate}</p>
+                        <p class="card-text"><strong>Location:</strong> ${ticket.eventLocation}</p>
+                        <p class="card-text"><strong>Current Owner:</strong> 
+                            <span class="font-monospace">${owner}</span>
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize verification
+        window.addEventListener('load', async () => {
+            if (typeof window.ethereum === 'undefined') {
+                showResult("⚠️ Please install MetaMask to verify tickets", false);
+                return;
+            }
+
+            try {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                await verifyTicket();
+            } catch (error) {
+                showResult("🔴 User denied account access", false);
+            }
+        });
+    </script>
+</body>
+</html>

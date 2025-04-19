@@ -2,7 +2,7 @@
 let isWeb3Initialized = false;
 let isContractInitialized = false;
 let isTicketsLoaded = false;
-let isConnecting = false
+let isConnecting = false;
 
 // ✅ Initialize Web3 and Smart Contract
 async function initializeWeb3() {
@@ -55,6 +55,11 @@ async function initializeContract() {
     }
 }
 
+// Add at the top of your mytickets.js
+function escapeSingleQuotes(str) {
+    return str.replace(/'/g, "\\'");
+}
+
 // ✅ Load Tickets Owned by Connected Wallet
 async function loadMyTickets() {
     await initializeWeb3();
@@ -75,7 +80,7 @@ async function loadMyTickets() {
         for (let i = 1; i <= ticketCount; i++) {
             const ticket = await window.contract.methods.tickets(i).call();
             const owner = ticket.currentOwner.toLowerCase();
-            
+
             if (owner === window.currentAccount.toLowerCase()) {
                 hasOwnedTickets = true;
                 const priceETH = window.web3.utils.fromWei(ticket.price, "ether");
@@ -85,10 +90,10 @@ async function loadMyTickets() {
                 // Base button template
                 let actionButton = '';
                 let statusMessage = '';
-                
+
                 if (!isExpired) {
                     // Only show sell/unsell if event is not expired
-                    actionButton = ticket.isForResale 
+                    actionButton = ticket.isForResale
                         ? `<button class="btn btn-danger btn-sm" onclick="confirmUnsell(${ticket.ticketId})">Unsell</button>`
                         : `<button class="btn btn-warning btn-sm" onclick="confirmSell(
                             ${ticket.ticketId}, 
@@ -100,6 +105,29 @@ async function loadMyTickets() {
                 } else {
                     statusMessage = `<span class="text-danger">Expired</span>`;
                 }
+
+                // In loadMyTickets function, when creating buttons:
+                const ticketData = await window.contract.methods.tickets(i).call();
+                const qrCodeHash = ticketData.qrCodeHash;
+
+                // In the ticket row generation code
+                const viewPDFButton = `<button class="btn btn-info btn-sm" onclick="viewPDF(
+                    ${ticket.ticketId}, 
+                    '${ticket.eventName.replace(/'/g, "\\'")}', 
+                    '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
+                    '${ticket.eventLocation.replace(/'/g, "\\'")}', 
+                    '${priceETH}',
+                    '${ticket.qrCodeHash.replace(/'/g, "\\'")}'
+                )">View PDF</button>`;
+
+                const downloadPDFButton = `<button class="btn btn-success btn-sm" onclick="downloadPDF(
+                    ${ticket.ticketId}, 
+                    '${ticket.eventName.replace(/'/g, "\\'")}', 
+                    '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
+                    '${ticket.eventLocation.replace(/'/g, "\\'")}', 
+                    '${priceETH}',
+                    '${ticket.qrCodeHash.replace(/'/g, "\\'")}'
+                )">Download PDF</button>`;
 
                 const viewQRButton = `<button class="btn btn-info btn-sm" onclick="viewQRCode(
                     ${ticket.ticketId}, 
@@ -117,13 +145,14 @@ async function loadMyTickets() {
                         <td>${ticket.eventLocation}</td>
                         <td>${priceETH} ETH</td>
                         <td>
-                            ${viewQRButton}
-                            ${statusMessage}
-                            ${actionButton}
+                        ${viewPDFButton}
+                        ${downloadPDFButton}
+                        ${viewQRButton}
+                        ${statusMessage}
+                        ${actionButton}
                         </td>
                     </tr>
                 `;
-
                 myTicketsTableBody.innerHTML += row;
             }
         }
@@ -207,6 +236,182 @@ async function checkIsOrganizer(walletAddress) {
     }
 }
 
+async function createPDF(ticketId, eventName, eventDate, eventLocation, priceETH, qrCodeHash) {
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Add F1 Logo
+        const logoUrl = 'f1-logo.png';
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        
+        await new Promise((resolve, reject) => {
+            img.onload = () => {
+                doc.addImage(img, 'PNG', 10, 10, 30, 15);
+                resolve();
+            };
+            img.onerror = reject;
+            img.src = logoUrl;
+        });
+
+        // Ticket Details
+        doc.setFontSize(18);
+        doc.text("F1 Paddock Club Official Ticket", 50, 20);
+        
+        // Event Details
+        doc.setFontSize(12);
+        doc.text(`Ticket ID: #${ticketId}`, 10, 40);
+        doc.text(`Event: ${eventName}`, 15, 55);
+        doc.text(`Date: ${eventDate}`, 15, 62);
+        doc.text(`Location: ${eventLocation}`, 15, 69);
+        doc.text(`Price: ${priceETH} ETH`, 150, 55);
+
+        // Generate QR Code
+        const verificationURL = `${window.location.origin}/ticket-verification.html?id=${ticketId}&hash=${encodeURIComponent(qrCodeHash)}`;
+        const qrDataURL = await QRCode.toDataURL(verificationURL, { width: 150 });
+        doc.addImage(qrDataURL, 'PNG', 60, 80, 90, 90);
+
+        // Footer
+        doc.setFontSize(8);
+        doc.text("© 2025 Formula One World Championship Limited", 10, 185);
+
+        return doc;
+    } catch (error) {
+        console.error('PDF creation failed:', error);
+        throw error;
+    }
+}
+
+// async function createPDF(ticketId, eventName, eventDate, eventLocation, priceETH, qrCodeHash) {
+//     try {
+//         const { jsPDF } = window.jspdf;
+//         const doc = new jsPDF();
+        
+//         // Add F1 Logo
+//         const logoUrl = 'f1-logo.png';
+//         const img = new Image();
+//         img.crossOrigin = 'Anonymous';
+        
+//         await new Promise((resolve, reject) => {
+//             img.onload = () => {
+//                 doc.addImage(img, 'PNG', 10, 10, 30, 15);
+//                 resolve();
+//             };
+//             img.onerror = reject;
+//             img.src = logoUrl;
+//         });
+
+//         // Ticket Details
+//         doc.setFontSize(18);
+//         doc.setTextColor(40, 40, 40);
+//         doc.text("F1 Paddock Club Official Ticket", 50, 20);
+        
+//         doc.setFontSize(12);
+//         doc.setTextColor(100, 100, 100);
+//         doc.text(`Ticket ID: #${ticketId}`, 10, 40);
+        
+//         // Event Details Box
+//         doc.setFillColor(245, 245, 245);
+//         doc.rect(10, 45, 190, 35, 'F');
+//         doc.setFontSize(14);
+//         doc.setTextColor(200, 0, 0);
+//         doc.text(eventName, 15, 55);
+//         doc.setFontSize(12);
+//         doc.setTextColor(0, 0, 0);
+//         doc.text(`Date: ${eventDate}`, 15, 62);
+//         doc.text(`Location: ${eventLocation}`, 15, 69);
+
+//         // Price and Issued To
+//         doc.setFontSize(12);
+//         doc.text(`Price: ${priceETH} ETH`, 150, 55);
+//         const issuedTo = window.currentAccount;
+//         const formattedIssuedTo = issuedTo.match(/.{1,12}/g) || [];
+//         doc.text(`Issued To: ${formattedIssuedTo[0]}`, 150, 62);
+//         if (formattedIssuedTo[1]) {
+//             doc.text(`            ${formattedIssuedTo[1]}`, 150, 68);
+//         }
+        
+//         // Create hidden QR container
+//         const qrContainer = document.createElement('div');
+//         qrContainer.style.cssText = `
+//             position: fixed;
+//             top: -1000px;
+//             left: -1000px;
+//             opacity: 0;
+//             pointer-events: none;
+//             height: 150px; 
+//             width: 150px;
+//         `;
+//         document.body.appendChild(qrContainer);
+
+//         // Generate QR code directly without DOM
+//         const verificationURL = `${window.location.origin}/ticket-verification.html?id=${ticketId}&hash=${encodeURIComponent(qrCodeHash)}`;
+//         const qrSvg = qr.imageSync(verificationURL, { type: 'png' });
+//         const qrDataURL = `data:image/png;base64,${btoa(qrSvg)}`;
+        
+//         doc.addImage(qrDataURL, 'PNG', 60, 80, 90, 90);
+            
+
+
+//          // Terms and Conditions
+//          doc.setFontSize(8);
+//          doc.setTextColor(100, 100, 100);
+//          doc.text("This ticket is non-transferable without prior authorization.", 10, 180);
+//          doc.text("© 2025 Formula One World Championship Limited", 10, 185);
+ 
+//          // PDF Metadata
+//          doc.setProperties({
+//              creator: 'F1 Paddock Club',
+//              producer: 'F1 Paddock Club',
+//              creationDate: new Date(),
+//              title: `Ticket #${ticketId}`,
+//          });
+ 
+
+//         console.log('PDF creation completed');
+//         return doc;
+//     } catch (error) {
+//         console.error('PDF creation failed:', error);
+//         alert(`PDF Error: ${error.message}`);
+//         throw error;
+//     }
+// }
+
+async function viewPDF(ticketId, eventName, eventDate, eventLocation, priceETH, qrCodeHash) {
+    try {
+        console.log('Attempting to view PDF...');
+        const doc = await createPDF(ticketId, eventName, eventDate, eventLocation, priceETH, qrCodeHash);
+        
+        console.log('Generating PDF blob...');
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        console.log('Opening PDF window...');
+        const newWindow = window.open(pdfUrl, '_blank');
+        
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            console.warn('Popup blocked');
+            alert('Popups blocked! Please allow popups for this site.');
+            URL.revokeObjectURL(pdfUrl);
+        } else {
+            console.log('PDF window opened');
+            newWindow.onload = () => {
+                URL.revokeObjectURL(pdfUrl);
+                console.log('PDF loaded successfully');
+            };
+        }
+    } catch (error) {
+        console.error('PDF viewing failed:', error);
+        alert(`PDF Error: ${error.message}`);
+    }
+}
+
+async function downloadPDF(ticketId, eventName, eventDate, eventLocation, priceETH, qrCodeHash) {
+    const doc = await createPDF(ticketId, eventName, eventDate, eventLocation, priceETH, qrCodeHash);
+    doc.save(`F1-Ticket-${ticketId}.pdf`);
+}
+  
 // Function to redirect to the QR code view page
 function viewQRCode(ticketId, eventName, eventDate, eventLocation, priceETH) {
     // Store ticket details in sessionStorage
@@ -309,7 +514,7 @@ async function connectWallet() {
 // ✅ Disconnect Wallet with Proper UI Reset
 async function disconnectWallet() {
     console.log("🔹 Disconnecting Wallet...");
-    
+
     // Full cleanup
     sessionStorage.removeItem("connectedWallet");
     window.currentAccount = null;
@@ -320,12 +525,12 @@ async function disconnectWallet() {
 
     // Force UI update
     await safeUpdateNavbar(null);
-    
+
     // Page-specific cleanup
     if (window.location.pathname.includes("mytickets.html")) {
         document.getElementById("myTicketsTableBody").innerHTML = "";
     }
-    
+
     console.log("✅ Wallet fully disconnected");
 
     // // Add a small delay for UI smoothness
@@ -399,7 +604,7 @@ async function safeUpdateNavbar(walletAddress) {
         walletDisplay.style.display = "flex";
         navConnectButton.classList.remove("btn-danger");
         navConnectButton.classList.add("btn-secondary");
-        
+
         // Staff check
         if (staffNavItem) {
             const isAdminOrOrganizer = await isOrganizerOrAdmin(walletAddress);
@@ -413,7 +618,7 @@ async function safeUpdateNavbar(walletAddress) {
         navConnectButton.classList.remove("btn-secondary");
         if (staffNavItem) staffNavItem.style.display = "none";
     }
-    
+
     // Reset button to default state
     navConnectButton.innerHTML = walletAddress ? "Disconnect Wallet" : "Connect Wallet";
 }
@@ -462,7 +667,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Initial UI update
         const connectedWallet = sessionStorage.getItem("connectedWallet");
         await safeUpdateNavbar(connectedWallet || null);
-        
+
     } catch (error) {
         console.error("❌ Error during page initialization:", error);
     }
