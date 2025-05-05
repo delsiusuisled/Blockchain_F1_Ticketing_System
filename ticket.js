@@ -240,14 +240,33 @@ async function loadTickets() {
     try {
         const events = await fetchAllEvents();
 
+        const totalPages = Math.ceil(events.length / eventsPerPage);
+        
+        // Validate current page number
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
+        }
+
+        // Update page display
+        document.getElementById('currentPageDisplay').textContent = 
+            `Page ${currentPage} of ${totalPages || 1}`;
+
+        // Handle empty state
         if (!events.length) {
             ticketTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No events available</td></tr>`;
+            document.getElementById('prevPage').disabled = true;
+            document.getElementById('nextPage').disabled = true;
             return;
         }
 
+        // Pagination slicing
+        const startIdx = (currentPage - 1) * eventsPerPage;
+        const endIdx = startIdx + eventsPerPage;
+        const paginatedEvents = events.slice(startIdx, endIdx);
+
         ticketTableBody.innerHTML = ""; // Clear previous entries
 
-        events.forEach((event, index) => {
+        paginatedEvents.forEach((event, index) => {
             try {
                 console.log(`🔍 Processing Event ${index}:`, event);
 
@@ -294,12 +313,23 @@ async function loadTickets() {
                 console.error(`❌ Error processing event ${index}:`, event, error);
             }
         });
-
+        // Update button states
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        
         console.log("✅ Events displayed successfully.");
     } catch (error) {
         console.error("❌ Error loading events:", error);
         ticketTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading events. Please try again.</td></tr>`;
     }
+}
+
+function changePage(delta) {
+    const newPage = currentPage + delta;
+    if (newPage < 1) return; // Prevent page numbers less than 1
+    currentPage = newPage;
+    //document.getElementById('currentPageDisplay').textContent = `Page ${currentPage}`;
+    loadTickets();
 }
 
 
