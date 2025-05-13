@@ -3,6 +3,9 @@ let isContractInitialized = false;
 let isConnecting = false
 let isEventsLoaded = false;
 
+let allEvents = [];
+let filteredEvents = [];
+
 // ✅ Ensure Web3 is Initialized Before Interacting with the Contract
 async function initializeWeb3() {
     if (isWeb3Initialized) {
@@ -127,83 +130,169 @@ async function isOrganizerOrAdmin(walletAddress) {
 }
 
 // ✅ Load Events and Display in the Table (Hidden Expired Events)
+// async function loadEvents() {
+//     console.log("✅ Running loadEvents...");
+
+//     const eventTableBody = document.getElementById("eventsTableBody");
+//     if (!eventTableBody) {
+//         console.error("❌ Event table not found.");
+//         return;
+//     }
+
+//     eventTableBody.innerHTML = `<tr><td colspan="7" class="text-center">Loading events, please wait...</td></tr>`;
+
+//     try {
+//         if (!window.web3) await initializeWeb3();
+//         if (!window.contract) await initializeContract();
+
+//         const events = await fetchAllEvents();
+//         console.log("✅ Raw Events:", events);
+
+//         if (!Array.isArray(events) || events.length === 0) {
+//             console.warn("⚠️ No valid events found.");
+//             eventTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No events available.</td></tr>`;
+//             return;
+//         }
+
+//         eventTableBody.innerHTML = ""; // Clear table
+//         const currentTimestamp = Math.floor(Date.now() / 1000);
+
+//         // Filter out expired events (remain in blockchain storage)
+//         const activeEvents = events.filter(event => {
+//             const eventTimestamp = Number(event.eventTimestamp);
+//             return eventTimestamp > currentTimestamp;
+//         });
+
+//         if (activeEvents.length === 0) {
+//             eventTableBody.innerHTML = `<tr><td colspan="6" class="text-center">No upcoming events found.</td></tr>`;
+//             return;
+//         }
+
+//         activeEvents.forEach((event) => {
+//             try {
+//                 const maxTickets = Number(event.maxTickets);
+//                 const ticketsMinted = Number(event.ticketsMinted);
+//                 const availableTickets = maxTickets - ticketsMinted; // Calculate available tickets
+//                 const availability = availableTickets > 0 ? "Available" : "Sold Out";
+                
+//                 const eventPrice = event.price ? 
+//                     `${window.web3.utils.fromWei(event.price, "ether")} ETH` : 
+//                     "N/A";
+
+//                 const row = `
+//                     <tr>
+//                         <td>${event.eventName}</td>
+//                         <td>${new Date(event.eventTimestamp * 1000).toLocaleDateString()}</td>
+//                         <td>${event.eventLocation}</td>
+//                         <td>${eventPrice}</td>
+//                         <td>${availableTickets}</td> <!-- Changed from maxTickets -->
+//                         <td>${availability}</td>
+//                         <td>
+//                             <button class="btn btn-primary" 
+//                                     onclick="navigateToEventDetails(${event.eventId})">
+//                                 Details
+//                             </button>
+//                         </td>
+//                     </tr>
+//                 `;
+//                 eventTableBody.innerHTML += row;
+//                 allEvents = activeEvents; // Store all active events
+//                 filteredEvents = [...allEvents];
+                
+//                 // Add these lines after storing the activeEvents
+//                 populateYearFilter();
+//                 setupEventListeners();
+//                 updatePagination();
+                
+//                 // Modify the event rendering to use filteredEvents
+//                 renderEvents(filteredEvents);
+//             } catch (error) {
+//                 console.error("❌ Error processing event:", event, error);
+//             }
+//         });
+
+//         console.log("✅ Active events displayed successfully.");
+//         console.log("ℹ️ Expired events remain stored in contract storage");
+//     } catch (error) {
+//         console.error("❌ Error loading events:", error);
+//         eventTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading events. Please try again.</td></tr>`;
+//     }
+// }
+
 async function loadEvents() {
     console.log("✅ Running loadEvents...");
-
     const eventTableBody = document.getElementById("eventsTableBody");
-    if (!eventTableBody) {
-        console.error("❌ Event table not found.");
-        return;
-    }
-
-    eventTableBody.innerHTML = `<tr><td colspan="7" class="text-center">Loading events, please wait...</td></tr>`;
 
     try {
-        if (!window.web3) await initializeWeb3();
-        if (!window.contract) await initializeContract();
-
+        eventTableBody.innerHTML = `<tr><td colspan="7" class="text-center">Loading events...</td></tr>`;
+        
         const events = await fetchAllEvents();
-        console.log("✅ Raw Events:", events);
-
-        if (!Array.isArray(events) || events.length === 0) {
-            console.warn("⚠️ No valid events found.");
-            eventTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No events available.</td></tr>`;
-            return;
-        }
-
-        eventTableBody.innerHTML = ""; // Clear table
         const currentTimestamp = Math.floor(Date.now() / 1000);
 
-        // Filter out expired events (remain in blockchain storage)
-        const activeEvents = events.filter(event => {
-            const eventTimestamp = Number(event.eventTimestamp);
-            return eventTimestamp > currentTimestamp;
-        });
+        // Filter active events
+        allEvents = events.filter(event => 
+            Number(event.eventTimestamp) > currentTimestamp
+        );
+        
+        // Initialize filtered events
+        filteredEvents = [...allEvents];
+        
+        // Setup UI components
+        populateYearFilter();
+        setupEventListeners();
+        updatePagination();
+        
+        // Initial render
+        renderEvents(filteredEvents);
 
-        if (activeEvents.length === 0) {
-            eventTableBody.innerHTML = `<tr><td colspan="6" class="text-center">No upcoming events found.</td></tr>`;
-            return;
-        }
-
-        activeEvents.forEach((event) => {
-            try {
-                const maxTickets = Number(event.maxTickets);
-                const ticketsMinted = Number(event.ticketsMinted);
-                const availableTickets = maxTickets - ticketsMinted; // Calculate available tickets
-                const availability = availableTickets > 0 ? "Available" : "Sold Out";
-                
-                const eventPrice = event.price ? 
-                    `${window.web3.utils.fromWei(event.price, "ether")} ETH` : 
-                    "N/A";
-
-                const row = `
-                    <tr>
-                        <td>${event.eventName}</td>
-                        <td>${new Date(event.eventTimestamp * 1000).toLocaleDateString()}</td>
-                        <td>${event.eventLocation}</td>
-                        <td>${eventPrice}</td>
-                        <td>${availableTickets}</td> <!-- Changed from maxTickets -->
-                        <td>${availability}</td>
-                        <td>
-                            <button class="btn btn-primary" 
-                                    onclick="navigateToEventDetails(${event.eventId})">
-                                Details
-                            </button>
-                        </td>
-                    </tr>
-                `;
-                eventTableBody.innerHTML += row;
-            } catch (error) {
-                console.error("❌ Error processing event:", event, error);
-            }
-        });
-
-        console.log("✅ Active events displayed successfully.");
-        console.log("ℹ️ Expired events remain stored in contract storage");
     } catch (error) {
         console.error("❌ Error loading events:", error);
-        eventTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading events. Please try again.</td></tr>`;
+        eventTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading events</td></tr>`;
     }
+}
+
+function renderEvents(eventsToRender) {
+    const eventTableBody = document.getElementById("eventsTableBody");
+    if (!eventTableBody) return;
+
+    eventTableBody.innerHTML = ""; // Clear existing content
+
+    const start = (currentPage - 1) * eventsPerPage;
+    const end = start + eventsPerPage;
+    const paginatedEvents = eventsToRender.slice(start, end);
+
+    paginatedEvents.forEach((event) => {
+        try {
+            const maxTickets = Number(event.maxTickets);
+            const ticketsMinted = Number(event.ticketsMinted);
+            const availableTickets = maxTickets - ticketsMinted;
+            const availability = availableTickets > 0 ? "Available" : "Sold Out";
+            
+            const eventPrice = event.price ? 
+                `${window.web3.utils.fromWei(event.price, "ether")} ETH` : 
+                "N/A";
+
+            const row = `
+                <tr>
+                    <td>${event.eventName}</td>
+                    <td>${new Date(event.eventTimestamp * 1000).toLocaleDateString()}</td>
+                    <td>${event.eventLocation}</td>
+                    <td>${eventPrice}</td>
+                    <td>${availableTickets}</td>
+                    <td>${availability}</td>
+                    <td>
+                        <button class="btn btn-primary" 
+                                onclick="navigateToEventDetails(${event.eventId})">
+                            Details
+                        </button>
+                    </td>
+                </tr>
+            `;
+            eventTableBody.innerHTML += row;
+        } catch (error) {
+            console.error("❌ Error processing event:", event, error);
+        }
+    });
 }
 
 // ✅ Redirect to Event Details Page
@@ -328,6 +417,92 @@ async function safeUpdateNavbar(walletAddress) {
     
     // Reset button to default state
     navConnectButton.innerHTML = walletAddress ? "Disconnect Wallet" : "Connect Wallet";
+}
+
+function filterEvents(searchTerm = '', selectedYear = 'all') {
+    return allEvents.filter(event => {
+        const matchesSearch = event.eventName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            event.eventLocation.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const eventYear = new Date(event.eventTimestamp * 1000).getFullYear();
+        const matchesYear = selectedYear === 'all' || eventYear.toString() === selectedYear;
+        
+        return matchesSearch && matchesYear;
+    });
+}
+
+function populateYearFilter() {
+    const yearSelect = document.getElementById('yearFilter');
+    const years = new Set();
+    
+    // Always include 2024 and current year
+    const currentYear = new Date().getFullYear();
+    years.add(2024);
+    if (currentYear > 2024) years.add(currentYear);
+
+    // Add years from events
+    allEvents.forEach(event => {
+        const eventYear = new Date(event.eventTimestamp * 1000).getFullYear();
+        if (eventYear >= 2024) years.add(eventYear);
+    });
+
+    // Build options
+    yearSelect.innerHTML = '<option value="all">All Years</option>';
+    Array.from(years)
+        .sort((a, b) => a - b)
+        .forEach(year => {
+            yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+        });
+}
+
+
+function setupEventListeners() {
+    // Search input
+    document.getElementById('eventSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value;
+        const selectedYear = document.getElementById('yearFilter').value;
+        filteredEvents = filterEvents(searchTerm, selectedYear);
+        currentPage = 1;
+        updatePagination();
+        renderEvents(filteredEvents);
+    });
+
+    // Year filter
+    document.getElementById('yearFilter').addEventListener('change', (e) => {
+        const searchTerm = document.getElementById('eventSearch').value;
+        const selectedYear = e.target.value;
+        filteredEvents = filterEvents(searchTerm, selectedYear);
+        currentPage = 1;
+        updatePagination();
+        renderEvents(filteredEvents);
+    });
+
+    // Pagination controls
+    document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            updatePagination();
+            renderEvents(filteredEvents);
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            updatePagination();
+            renderEvents(filteredEvents);
+        }
+    });
+}
+
+function updatePagination() {
+    totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
+    const pageStatus = document.getElementById('pageStatus');
+    pageStatus.textContent = `Page ${currentPage} of ${totalPages}`;
+    
+    // Disable/enable pagination buttons
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled = currentPage === totalPages;
 }
 
 // ✅ Page Load Logic

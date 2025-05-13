@@ -2,6 +2,9 @@ let isWeb3Initialized = false;
 let isContractInitialized = false;
 let isConnecting = false
 
+let allTickets = [];
+let filteredTickets = [];
+
 // ✅ Ensure Web3 is Initialized Before Interacting with the Contract
 async function initializeWeb3() {
     if (isWeb3Initialized) {
@@ -220,61 +223,159 @@ async function safeUpdateNavbar(walletAddress) {
 }
 
 // ✅ Load Marketplace Tickets from Contract (Updated)
-// ✅ Load Marketplace Tickets from Contract (Updated)
 async function loadMarketplaceTickets() {
     console.log("🔍 Fetching resale tickets...");
-    const ticketsForSale = await window.contract.methods.getResaleTickets().call();
-    console.log("📢 Tickets for sale:", ticketsForSale);
-
     const marketplaceTableBody = document.getElementById("marketplaceTableBody");
     marketplaceTableBody.innerHTML = "Loading...";
 
     try {
-        if (!window.contract) {
-            console.error("❌ Contract not initialized.");
-            marketplaceTableBody.innerHTML = `<tr><td colspan="7" class="text-center">Marketplace not available</td></tr>`;
-            return;
-        }
+        const ticketsForSale = await window.contract.methods.getResaleTickets().call();
+        allTickets = ticketsForSale.map(ticket => ({
+            ...ticket,
+            eventTimestamp: Number(ticket.eventTimestamp)
+        }));
 
-        marketplaceTableBody.innerHTML = "";
-
-        if (ticketsForSale.length === 0) {
+        if (allTickets.length === 0) {
             marketplaceTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No tickets for sale yet!</td></tr>`;
             return;
         }
 
-        ticketsForSale.forEach(ticket => {
-            // Ensure eventTimestamp is properly handled as a UNIX timestamp (seconds)
-            const eventDate = new Date(Number(ticket.eventTimestamp) * 1000).toLocaleDateString(); // Convert to milliseconds
+        filteredTickets = [...allTickets];
+        populateYearFilter();
+        setupEventListeners();
+        updatePagination();
+        renderTickets(filteredTickets);
 
-            // Convert BigInt to string before passing to fromWei
-            const priceETH = window.web3.utils.fromWei(ticket.price.toString(), "ether");  // Convert BigInt to string
-
-            const row = `
-                <tr>
-                    <td>${ticket.ticketId}</td>
-                    <td>${ticket.eventName}</td>
-                    <td>${eventDate}</td>
-                    <td>${ticket.eventLocation}</td>
-                    <td>${ticket.currentOwner}</td>
-                    <td>${priceETH} ETH</td>
-                    <td>
-                        <button class="btn btn-primary btn-sm buyButton" 
-                                data-ticket-id="${ticket.ticketId}"
-                                data-price="${ticket.price}"
-                                data-owner="${ticket.currentOwner}">
-                            Buy
-                        </button>
-                    </td>
-                </tr>`;
-            marketplaceTableBody.innerHTML += row;
-        });
-
-        attachBuyButtonListeners();
     } catch (error) {
         console.error("❌ Marketplace error:", error);
         marketplaceTableBody.innerHTML = `<tr><td colspan="7" class="text-center">Error loading tickets</td></tr>`;
     }
+}
+
+function filterTickets(searchTerm = '', selectedYear = 'all') {
+    return allTickets.filter(ticket => {
+        const matchesSearch = ticket.eventName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            ticket.eventLocation.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const eventYear = new Date(Number(ticket.eventTimestamp) * 1000).getFullYear();
+        const matchesYear = selectedYear === 'all' || eventYear.toString() === selectedYear;
+        
+        return matchesSearch && matchesYear;
+    });
+}
+
+function populateYearFilter() {
+    const yearSelect = document.getElementById('yearFilter');
+    const years = new Set();
+    
+    // Always include 2024 and current year
+    const currentYear = new Date().getFullYear();
+    years.add(2024);
+    if (currentYear > 2024) years.add(currentYear);
+
+    // Add years from tickets
+    allTickets.forEach(ticket => {
+        const eventYear = new Date(Number(ticket.eventTimestamp) * 1000).getFullYear();
+        if (eventYear >= 2024) years.add(eventYear);
+    });
+
+    // Build options
+    yearSelect.innerHTML = '<option value="all">All Years</option>';
+    Array.from(years)
+        .sort((a, b) => a - b)
+        .forEach(year => {
+            yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+        });
+}
+
+function setupEventListeners() {
+    // Search input
+    document.getElementById('marketplaceSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value;
+        const selectedYear = document.getElementById('yearFilter').value;
+        filteredTickets = filterTickets(searchTerm, selectedYear);
+        currentPage = 1;
+        updatePagination();
+        renderTickets(filteredTickets);
+    });
+
+    // Year filter
+    document.getElementById('yearFilter').addEventListener('change', (e) => {
+        const searchTerm = document.getElementById('marketplaceSearch').value;
+        const selectedYear = e.target.value;
+        filteredTickets = filterTickets(searchTerm, selectedYear);
+        currentPage = 1;
+        updatePagination();
+        renderTickets(filteredTickets);
+    });
+
+    // Pagination controls
+    document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            updatePagination();
+            renderTickets(filteredTickets);
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            updatePagination();
+            renderTickets(filteredTickets);
+        }
+    });
+}
+
+function updatePagination() {
+    totalPages = Math.ceil(filteredTickets.length / eventsPerPage);
+    const pageStatus = document.getElementById('pageStatus');
+    pageStatus.textContent = `Page ${currentPage} of ${totalPages}`;
+    
+    // Disable/enable pagination buttons
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled = currentPage === totalPages;
+}
+
+function renderTickets(ticketsToRender) {
+    const marketplaceTableBody = document.getElementById("marketplaceTableBody");
+    if (!marketplaceTableBody) return;
+
+    marketplaceTableBody.innerHTML = "";
+    const start = (currentPage - 1) * eventsPerPage;
+    const end = start + eventsPerPage;
+    const paginatedTickets = ticketsToRender.slice(start, end);
+
+    if (paginatedTickets.length === 0) {
+        marketplaceTableBody.innerHTML = `<tr><td colspan="7" class="text-center">No tickets found matching your criteria</td></tr>`;
+        return;
+    }
+
+    paginatedTickets.forEach(ticket => {
+        const eventDate = new Date(Number(ticket.eventTimestamp) * 1000).toLocaleDateString();
+        const priceETH = window.web3.utils.fromWei(ticket.price.toString(), "ether");
+
+        const row = `
+            <tr>
+                <td>${ticket.ticketId}</td>
+                <td>${ticket.eventName}</td>
+                <td>${eventDate}</td>
+                <td>${ticket.eventLocation}</td>
+                <td>${priceETH} ETH</td>
+                <td>${ticket.currentOwner}</td>
+                <td>
+                    <button class="btn btn-primary btn-sm buyButton" 
+                            data-ticket-id="${ticket.ticketId}"
+                            data-price="${ticket.price}"
+                            data-owner="${ticket.currentOwner}">
+                        Buy
+                    </button>
+                </td>
+            </tr>`;
+        marketplaceTableBody.innerHTML += row;
+    });
+
+    attachBuyButtonListeners();
 }
 
 async function buyTicket(ticketID, price, ownerAddress) {

@@ -4,6 +4,9 @@ let isContractInitialized = false;
 let isTicketsLoaded = false;
 let isConnecting = false;
 
+let allTickets = [];
+let filteredTickets = [];
+
 // ✅ Initialize Web3 and Smart Contract
 async function initializeWeb3() {
     if (isWeb3Initialized) {
@@ -65,105 +68,220 @@ async function loadMyTickets() {
     await initializeWeb3();
     await initializeContract();
     const myTicketsTableBody = document.getElementById("myTicketsTableBody");
-    myTicketsTableBody.innerHTML = "";
+    myTicketsTableBody.innerHTML = `<tr><td colspan="6" class="text-center">Loading tickets...</td></tr>`;
 
     try {
         const ticketCount = await window.contract.methods.ticketCount().call();
+        allTickets = [];
+        filteredTickets = [];
+
         if (ticketCount == 0) {
             myTicketsTableBody.innerHTML = `<tr><td colspan="6" class="text-center">No tickets available</td></tr>`;
             return;
         }
 
-        let hasOwnedTickets = false;
         const currentTimestamp = Math.floor(Date.now() / 1000);
-
+        
+        // Fetch all tickets
         for (let i = 1; i <= ticketCount; i++) {
             const ticket = await window.contract.methods.tickets(i).call();
-            const owner = ticket.currentOwner.toLowerCase();
-
-            if (owner === window.currentAccount.toLowerCase()) {
-                hasOwnedTickets = true;
-                const priceETH = window.web3.utils.fromWei(ticket.price, "ether");
-                const eventTimestamp = Number(ticket.eventTimestamp);
-                const isExpired = eventTimestamp < currentTimestamp;
-
-                // Base button template
-                let actionButton = '';
-                let statusMessage = '';
-
-                if (!isExpired) {
-                    // Only show sell/unsell if event is not expired
-                    actionButton = ticket.isForResale
-                        ? `<button class="btn btn-danger btn-sm" onclick="confirmUnsell(${ticket.ticketId})">Unsell</button>`
-                        : `<button class="btn btn-warning btn-sm" onclick="confirmSell(
-                            ${ticket.ticketId}, 
-                            '${ticket.eventName}', 
-                            '${new Date(eventTimestamp * 1000).toLocaleDateString()}', 
-                            '${ticket.eventLocation}', 
-                            '${priceETH}'
-                        )">Sell</button>`;
-                } else {
-                    statusMessage = `<span class="text-danger">Expired</span>`;
-                }
-
-                // In loadMyTickets function, when creating buttons:
-                const ticketData = await window.contract.methods.tickets(i).call();
-                const qrCodeHash = ticketData.qrCodeHash;
-
-                // In the ticket row generation code
-                const viewPDFButton = `<button class="btn btn-info btn-sm" onclick="viewPDF(
-                    ${ticket.ticketId}, 
-                    '${ticket.eventName.replace(/'/g, "\\'")}', 
-                    '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
-                    '${ticket.eventLocation.replace(/'/g, "\\'")}', 
-                    '${priceETH}',
-                    '${ticket.qrCodeHash.replace(/'/g, "\\'")}'
-                )">View PDF</button>`;
-
-                const downloadPDFButton = `<button class="btn btn-success btn-sm" onclick="downloadPDF(
-                    ${ticket.ticketId}, 
-                    '${ticket.eventName.replace(/'/g, "\\'")}', 
-                    '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
-                    '${ticket.eventLocation.replace(/'/g, "\\'")}', 
-                    '${priceETH}',
-                    '${ticket.qrCodeHash.replace(/'/g, "\\'")}'
-                )">Download PDF</button>`;
-
-                const viewQRButton = `<button class="btn btn-info btn-sm" onclick="viewQRCode(
-                    ${ticket.ticketId}, 
-                    '${ticket.eventName}', 
-                    '${new Date(eventTimestamp * 1000).toLocaleDateString()}', 
-                    '${ticket.eventLocation}', 
-                    '${priceETH}'
-                )">View QR Code</button>`;
-
-                const row = `
-                    <tr>
-                        <td>${ticket.ticketId}</td>
-                        <td>${ticket.eventName}</td>
-                        <td>${new Date(eventTimestamp * 1000).toLocaleDateString()}</td>
-                        <td>${ticket.eventLocation}</td>
-                        <td>${priceETH} ETH</td>
-                        <td>
-                        ${viewPDFButton}
-                        ${downloadPDFButton}
-                        ${viewQRButton}
-                        ${statusMessage}
-                        ${actionButton}
-                        </td>
-                    </tr>
-                `;
-                myTicketsTableBody.innerHTML += row;
+            if (ticket.currentOwner.toLowerCase() === window.currentAccount.toLowerCase()) {
+                allTickets.push({
+                    ...ticket,
+                    eventTimestamp: Number(ticket.eventTimestamp),
+                    isExpired: Number(ticket.eventTimestamp) < currentTimestamp
+                });
             }
         }
 
-        if (!hasOwnedTickets) {
+        if (allTickets.length === 0) {
             myTicketsTableBody.innerHTML = `<tr><td colspan="6" class="text-center">You did not purchase any tickets.</td></tr>`;
+            return;
         }
+
+        // Initialize filters and pagination
+        filteredTickets = [...allTickets];
+        populateYearFilter();
+        setupEventListeners();
+        updatePagination();
+        renderTickets(filteredTickets);
+
     } catch (error) {
         console.error("❌ Ticket loading error:", error);
+        myTicketsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading tickets</td></tr>`;
     }
 }
+
+function filterTickets(searchTerm = '', selectedYear = 'all') {
+    return allTickets.filter(ticket => {
+        const matchesSearch = ticket.eventName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            ticket.eventLocation.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const eventYear = new Date(ticket.eventTimestamp * 1000).getFullYear();
+        const matchesYear = selectedYear === 'all' || eventYear.toString() === selectedYear;
+        
+        return matchesSearch && matchesYear;
+    });
+}
+
+function populateYearFilter() {
+    const yearSelect = document.getElementById('yearFilter');
+    const years = new Set();
+    
+    // Always include 2024 and current year
+    const currentYear = new Date().getFullYear();
+    years.add(2024);
+    if (currentYear > 2024) years.add(currentYear);
+
+    // Add years from tickets
+    allTickets.forEach(ticket => {
+        const eventYear = new Date(ticket.eventTimestamp * 1000).getFullYear();
+        if (eventYear >= 2024) years.add(eventYear);
+    });
+
+    // Build options
+    yearSelect.innerHTML = '<option value="all">All Years</option>';
+    Array.from(years)
+        .sort((a, b) => a - b)
+        .forEach(year => {
+            yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+        });
+}
+
+function setupEventListeners() {
+    // Search input
+    document.getElementById('ticketSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value;
+        const selectedYear = document.getElementById('yearFilter').value;
+        filteredTickets = filterTickets(searchTerm, selectedYear);
+        currentPage = 1;
+        updatePagination();
+        renderTickets(filteredTickets);
+    });
+
+    // Year filter
+    document.getElementById('yearFilter').addEventListener('change', (e) => {
+        const searchTerm = document.getElementById('ticketSearch').value;
+        const selectedYear = e.target.value;
+        filteredTickets = filterTickets(searchTerm, selectedYear);
+        currentPage = 1;
+        updatePagination();
+        renderTickets(filteredTickets);
+    });
+
+    // Pagination controls
+    document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            updatePagination();
+            renderTickets(filteredTickets);
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            updatePagination();
+            renderTickets(filteredTickets);
+        }
+    });
+}
+
+function updatePagination() {
+    totalPages = Math.ceil(filteredTickets.length / eventsPerPage);
+    const pageStatus = document.getElementById('pageStatus');
+    pageStatus.textContent = `Page ${currentPage} of ${totalPages}`;
+    
+    // Disable/enable pagination buttons
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled = currentPage === totalPages;
+}
+
+function renderTickets(ticketsToRender) {
+    const ticketTableBody = document.getElementById("myTicketsTableBody");
+    if (!ticketTableBody) return;
+
+    ticketTableBody.innerHTML = ""; // Clear existing content
+
+    const start = (currentPage - 1) * eventsPerPage;
+    const end = start + eventsPerPage;
+    const paginatedTickets = ticketsToRender.slice(start, end);
+
+    if (paginatedTickets.length === 0) {
+        ticketTableBody.innerHTML = `<tr><td colspan="6" class="text-center">No tickets found matching your criteria</td></tr>`;
+        return;
+    }
+
+    paginatedTickets.forEach(ticket => {
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const eventTimestamp = Number(ticket.eventTimestamp);
+        const isExpired = eventTimestamp < currentTimestamp;
+        const priceETH = window.web3.utils.fromWei(ticket.price, "ether");
+        
+        // Generate action buttons
+        let actionButton = '';
+        let statusMessage = '';
+
+        if (!isExpired) {
+            actionButton = ticket.isForResale
+                ? `<button class="btn btn-danger btn-sm" onclick="confirmUnsell(${ticket.ticketId})">Unsell</button>`
+                : `<button class="btn btn-warning btn-sm" onclick="confirmSell(
+                    ${ticket.ticketId}, 
+                    '${ticket.eventName.replace(/'/g, "\\'")}', 
+                    '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
+                    '${ticket.eventLocation.replace(/'/g, "\\'")}', 
+                    '${priceETH}'
+                )">Sell</button>`;
+        } else {
+            statusMessage = `<span class="text-danger">Expired</span>`;
+        }
+
+        const viewPDFButton = `<button class="btn btn-info btn-sm" onclick="viewPDF(
+            ${ticket.ticketId}, 
+            '${ticket.eventName.replace(/'/g, "\\'")}', 
+            '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
+            '${ticket.eventLocation.replace(/'/g, "\\'")}', 
+            '${priceETH}',
+            '${ticket.qrCodeHash.replace(/'/g, "\\'")}'
+        )">View PDF</button>`;
+
+        const downloadPDFButton = `<button class="btn btn-success btn-sm" onclick="downloadPDF(
+            ${ticket.ticketId}, 
+            '${ticket.eventName.replace(/'/g, "\\'")}', 
+            '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
+            '${ticket.eventLocation.replace(/'/g, "\\'")}', 
+            '${priceETH}',
+            '${ticket.qrCodeHash.replace(/'/g, "\\'")}'
+        )">Download PDF</button>`;
+
+        const viewQRButton = `<button class="btn btn-info btn-sm" onclick="viewQRCode(
+            ${ticket.ticketId}, 
+            '${ticket.eventName.replace(/'/g, "\\'")}', 
+            '${new Date(eventTimestamp * 1000).toLocaleDateString().replace(/'/g, "\\'")}', 
+            '${ticket.eventLocation.replace(/'/g, "\\'")}', 
+            '${priceETH}'
+        )">View QR</button>`;
+
+        const row = `
+            <tr>
+                <td>${ticket.ticketId}</td>
+                <td>${ticket.eventName}</td>
+                <td>${new Date(eventTimestamp * 1000).toLocaleDateString()}</td>
+                <td>${ticket.eventLocation}</td>
+                <td>${priceETH} ETH</td>
+                <td>
+                    ${viewPDFButton}
+                    ${downloadPDFButton}
+                    ${viewQRButton}
+                    ${statusMessage}
+                    ${actionButton}
+                </td>
+            </tr>
+        `;
+        ticketTableBody.innerHTML += row;
+    });
+}
+
 
 // Check if the connected wallet is an Admin or Organizer
 async function isOrganizerOrAdmin(walletAddress) {

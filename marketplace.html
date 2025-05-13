@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,50 +11,124 @@
     <script src="contracts.js"></script>
     <script src="marketplace.js" defer></script>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+        .controls-container {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #1a1a1a;
+            /* dark background to make buttons/text visible */
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+        }
+
+        .pagination-controls .btn {
+            min-width: 100px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+        }
+
+        .pagination-controls .btn:hover {
+            background-color: #ff0000 !important;
+            color: white;
+        }
+
+        #pageStatus {
+            font-weight: bold;
+            color: #cc9900;
+            margin: 0 1rem;
+        }
+
+
+        .input-group-text {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+        }
+
+        .form-control,
+        .form-select {
+            background-color: white;
+            border-color: #dee2e6;
+        }
+    </style>
 </head>
+
 <body class="bg-light">
- <!-- Sticky Navbar -->
- <nav class="navbar sticky-top navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-        <!-- F1 Logo -->
-        <a class="navbar-brand" href="#">
-            <img src="f1-logo.png" alt="F1 Logo" width="40" height="40" class="d-inline-block align-text-top">
-        </a>
-        <!-- Navbar Links -->
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link active" href="index.html">Home</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="client.html">Events</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="mytickets.html">My Tickets</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="marketplace.html">Marketplace</a>
-                </li>
-                <!-- Staff Page - Only visible for Admin & Organizers -->
-                <li class="nav-item" id="staffNavItem" style="display: none;">
-                    <a class="nav-link" href="admin.html">Staff</a>
-                </li>
-            </ul>
+    <!-- Sticky Navbar -->
+    <nav class="navbar sticky-top navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <!-- F1 Logo -->
+            <a class="navbar-brand" href="#">
+                <img src="f1-logo.png" alt="F1 Logo" width="40" height="40" class="d-inline-block align-text-top">
+            </a>
+            <!-- Navbar Links -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="index.html">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="client.html">Events</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="mytickets.html">My Tickets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="marketplace.html">Marketplace</a>
+                    </li>
+                    <!-- Staff Page - Only visible for Admin & Organizers -->
+                    <li class="nav-item" id="staffNavItem" style="display: none;">
+                        <a class="nav-link" href="admin.html">Staff</a>
+                    </li>
+                </ul>
 
-            <!-- Connected Wallet Address Display -->
-            <span id="walletDisplay" class="text-light me-3" style="display: none;"></span>
+                <!-- Connected Wallet Address Display -->
+                <span id="walletDisplay" class="text-light me-3" style="display: none;"></span>
 
-            <!-- Connect Wallet Button -->
-            <button id="navConnectWalletButton" class="btn btn-danger">Connect Wallet</button>
+                <!-- Connect Wallet Button -->
+                <button id="navConnectWalletButton" class="btn btn-danger">Connect Wallet</button>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
     <main class="container mt-4">
         <h2 class="text-center mb-4">Tickets for Sale</h2>
+        <div class="controls-container mb-4">
+            <div class="row g-3 align-items-center">
+                <!-- Search Bar -->
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="marketplaceSearch" class="form-control"
+                            placeholder="Search tickets by event name or location...">
+                    </div>
+                </div>
+
+                <!-- Year Filter -->
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-filter"></i></span>
+                        <select id="yearFilter" class="form-select">
+                            <option value="all">All Years</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="table-responsive">
             <table id="marketplaceTable" class="table table-striped table-hover table-bordered">
                 <thead class="table-dark">
@@ -72,10 +147,16 @@
                 </tbody>
             </table>
         </div>
+        <div class="pagination-controls mt-4 text-center">
+            <button id="prevPage" class="btn btn-outline-dark">Previous</button>
+            <span id="pageStatus" class="mx-3">Page 1 of 1</span>
+            <button id="nextPage" class="btn btn-outline-dark">Next</button>
+        </div>
     </main>
-    <br><br><br><br><br><br><br><br><br>
+
     <footer class="bg-dark text-light text-center py-3 mt-4">
         <p class="mb-0">&copy; 2025 F1 Paddock Club. All Rights Reserved.</p>
     </footer>
 </body>
+
 </html>
